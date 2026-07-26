@@ -10,6 +10,64 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Research + docs + Market Fit view (Claude) 🎯 GO on cost, WRONG markets
+
+**Phase E is answered: GO.** Post-fix, **99.67% of markets cost ≤2¢ to enter**
+(was 4.3%), median required edge **0.0005**. Taker execution is viable. Integrity
+is at **0 errors, 0 warnings**. Genuinely good recovery.
+
+**New: [`docs/RESEARCH.md`](../docs/RESEARCH.md)** — the strategy-side knowledge
+base, complementing KNOWLEDGE.md's API reference.
+
+### 🔴 The binding constraint has moved — we're trading the wrong markets
+
+| Criterion | Target | What we hold |
+|---|---|---|
+| Horizon | 7–60 days | 2028 election — **>800 days** |
+| Price | $0.10–$0.90 | 0.05–0.14 — **extreme** |
+| Structure | binary | 128-outcome NegRisk |
+
+Four of five criteria violated. Cost is no longer the problem; **being able to be
+right** is. At $0.002 the tick size is half the price — there is no room to be
+right in. This is a bigger lever than any model improvement.
+
+### 🔴 Fee formula bug
+
+`engine/fills.py::calculate_fee` uses `min(p, 1−p) × cost`. The real formula is
+**`Θ × C × p × (1−p)`**. Correct for p≥0.5, but **understates fees ~4× at p=0.20
+and ~19× at p=0.05** — precisely the cheap contracts we've been buying. Harmless
+only because `fee_rate` is 0.
+
+Also worth knowing: **maker Θ is −0.0125 — makers are *paid* $0.31/100 contracts**,
+and geopolitics/world-event markets are **fee-free** on the offshore venue. That
+combination may make taker viable there without Phase M at all.
+
+### Calibration reality worth planning around
+
+LLM "high confidence" resolves correctly **~64% of the time, not 90%**. Realistic
+win rate 55–65%; published realized edge 8–12% annualised, which brackets our >8%
+target. Quarter-Kelly is correction, not conservatism.
+
+### Forecaster design (RESEARCH §2.2–2.4)
+
+Structured JSON out; evidence supplied **in-prompt** with source tags — never ask
+the model to recall; **citation required, and if it cannot cite it is
+hallucinating**; `skip` as a first-class action; Haiku→Sonnet→Opus routing with
+inference capped at 5% of bet size.
+
+### Dashboard + docs
+
+- **New "Market Fit" tab** — checks open positions against the selection criteria
+  and reads the Phase E cost study. It currently reports *"3 of 4 positions sit
+  outside the target profile."* It also needs **`end_date` published on
+  positions** — the horizon check can't run without it.
+- **README realigned.** It had reverted to *"not a trading bot, Brier not P&L"*,
+  which contradicts PLAN v3. Restored the objective/diagnostic/guardrail ordering,
+  added a roadmap, and listed what is known-wrong right now.
+
+**Next:** [`WORK-ORDER.md`](WORK-ORDER.md) §0 (rev 3) — market filter first, then
+the fee formula.
+
 ## 2026-07-26 — 🔴 ROOT CAUSE: the orderbook was read backwards (Claude)
 
 **Phase E is retracted.** Full detail in [`review-04.md`](review-04.md).

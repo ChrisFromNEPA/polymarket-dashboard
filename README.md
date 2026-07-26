@@ -15,11 +15,23 @@
 
 ## What this is
 
-An agent that runs autonomously, scanning live [Polymarket](https://polymarket.com) markets, estimating probabilities, and placing **paper trades with $10,000 fake money**. Every forecast is scored against what actually happened. The result will be a falsifiable answer — including, quite possibly, "no detectable edge."
+An agent that runs autonomously, scanning live [Polymarket](https://polymarket.com) markets, estimating probabilities, and placing **paper trades with $10,000 fake money**. Every forecast is scored against what actually happened. The result will be a falsifiable answer — including, quite possibly, "this does not work."
 
-**This is not a trading bot. It's a forecasting experiment.** The primary metric is **Brier score** (how well-calibrated the agent's probabilities are), not P&L. Over a few hundred trades, P&L is mostly variance. Brier measures actual skill.
+**The goal is an agent that makes money.** Proven first on paper, with costs modelled honestly enough that the result would survive contact with real execution.
 
-For context, on [ForecastBench](https://www.forecastbench.org/): human superforecasters score ~0.096, the best LLMs ~0.122–0.136, the general public ~0.121.
+Three metrics, in strict order:
+
+| | Metric | Role |
+|---|---|---|
+| **Objective** | Risk-adjusted profit after realistic costs | What we are trying to achieve |
+| **Diagnostic** | Brier score vs. the market price | Separates skill from luck — profit without it won't persist |
+| **Guardrail** | Honest fills, integrity checks | Stops us fooling ourselves |
+
+Brier is essential but it is *not* the target. An agent can be better calibrated
+than the market everywhere and still never find a tradeable price. Both numbers
+get reported together, always.
+
+For context, on [ForecastBench](https://www.forecastbench.org/): human superforecasters score ~0.096, the best LLMs ~0.122–0.136, the general public ~0.121. And for scale of the challenge: **roughly 92% of Polymarket traders lose money.**
 
 ---
 
@@ -34,9 +46,20 @@ For context, on [ForecastBench](https://www.forecastbench.org/): human superfore
 - 🟢 Dashboard: Brier hero, calibration chart, decision feed, positions with marks
 - 🟡 Strategy: favorite-longshot (pipeline validator — confirmed zero edge)
 - ⏳ Forecaster: LLM probability estimation module built, awaiting live integration
-- ⏳ Maker execution: limit orders planned (Polymarket makers pay zero fees)
+- ⏳ Maker execution: limit orders planned (makers earn a **negative** fee — see below)
 
-**First cycles are running. The experiment has begun.**
+**Known-wrong right now, being fixed:**
+- 🔴 **Market selection.** The agent is trading 2028-election longshots: >800-day
+  horizon, prices at $0.002–$0.13, inside a 128-outcome NegRisk event. Published
+  guidance says target **7–60 days, $0.10–$0.90, binary only** — we violate four
+  of five criteria. See [docs/RESEARCH.md](docs/RESEARCH.md) §1.
+- 🔴 **Fee formula** uses `min(p, 1−p)` where the real formula is `p × (1−p)` —
+  understates fees ~4× at p=0.20. Harmless only because fees are currently off.
+
+**Turning point:** a two-week bug had the orderbook read backwards (Polymarket
+returns levels worst-first), making every fill land at $0.999 and every spread
+look like 99.8%. Fixed — real spreads are **one tick**. See
+[reports/review-04.md](reports/review-04.md).
 
 ---
 
@@ -121,10 +144,14 @@ PYTHONPATH=. agent/.venv/bin/python -m pytest tests/ -v
 - Corrected May 2026 — see `reports/review-04.md`
 
 **Fee structure (2026):**
-- **Makers pay zero fees** and earn daily rebates
-- Takers pay fees by category; tiered rebate program launched May 29, 2026
-- Geopolitical/world event markets are fee-free
-- **This strongly favors maker execution** (Phase M)
+- Formula: **`fee = Θ × contracts × p × (1 − p)`** — so fees **vanish at extreme
+  prices** and peak at $0.50
+- **Taker Θ = 0.06** (max $1.50 per 100 contracts) · **Maker Θ = −0.0125** —
+  makers are **paid $0.31 per 100 contracts**, applied at the point of trade
+- Offshore venue uses a category schedule instead: crypto 0.07, sports 0.05,
+  politics/finance/tech 0.04, and **geopolitics/world events are fee-free**
+- **Two consequences:** maker execution is strictly better where you can get
+  filled, and fee-free geopolitical markets may make *taker* viable without it
 
 **NegRisk markets:**
 - Multi-outcome events where only one outcome can resolve Yes
@@ -143,14 +170,41 @@ PYTHONPATH=. agent/.venv/bin/python -m pytest tests/ -v
 | Doc | What's in it |
 |-----|-------------|
 | **[PLAN.md](PLAN.md)** | Mission, architecture, phases, anti-goals |
-| **[KNOWLEDGE.md](docs/KNOWLEDGE.md)** | Technical reference: APIs, fees, markets, pitfalls |
+| **[docs/RESEARCH.md](docs/RESEARCH.md)** | **Where edge comes from** — market selection, LLM forecaster design, fee economics, prior art |
+| **[docs/KNOWLEDGE.md](docs/KNOWLEDGE.md)** | Technical reference: APIs, market structure, pitfalls |
+| [docs/ECONOMICS.md](docs/ECONOMICS.md) | Unit economics, viability study, kill criteria |
 | [docs/TESTING.md](docs/TESTING.md) | Three-track simulation design |
 | [docs/DASHBOARD.md](docs/DASHBOARD.md) | Dashboard data contract and design |
-| [docs/ECONOMICS.md](docs/ECONOMICS.md) | Why taker vs maker, cost-of-entry study |
+| [reports/WORK-ORDER.md](reports/WORK-ORDER.md) | **Current ordered task list** |
 | [reports/STATUS.md](reports/STATUS.md) | Running build log |
 | [reports/](reports/) | Per-phase reports and code reviews |
 
-New here? Read **PLAN.md**, then **KNOWLEDGE.md**.
+New here? **PLAN.md** (why) → **RESEARCH.md** (where edge is) → **KNOWLEDGE.md**
+(how the API works). Working on it? Start at **WORK-ORDER.md**.
+
+---
+
+## Roadmap
+
+Ordered by what actually moves toward the goal. Full detail in
+[ECONOMICS.md §8](docs/ECONOMICS.md).
+
+| Stage | Goal | Status |
+|---|---|---|
+| **Foundation** | Honest fills, integrity, backtest controls | ✅ done |
+| **Viability** | Is profit possible? Cost study across the universe | ✅ redone post-fix — 99.7% of markets cost ≤2¢ |
+| **Market selection** | Trade 7–60d, $0.10–$0.90, binary only | 🔴 next — biggest single lever |
+| **Forecaster v1** | Retrieval + structured output + citation requirement | ⏳ |
+| **Calibration** | Extremization / Platt against real resolutions | ⏳ |
+| **Maker execution** | Limit orders, adverse-selection modelling | ⏳ |
+| **Long run** | 200+ resolutions, Brier vs market, weekly reports | ⏳ |
+
+**Success:** ≥20 qualifying trades/month, ≥2¢ net edge, >8% annualised, and
+`brier_agent < brier_market` over 200+ resolutions.
+
+**Kill criteria are written down** ([ECONOMICS.md §7](docs/ECONOMICS.md)) and will
+be honoured. A clean *"this doesn't work, here's the evidence"* is a successful
+outcome.
 
 ---
 
@@ -162,6 +216,13 @@ New here? Read **PLAN.md**, then **KNOWLEDGE.md**.
 | [agent-next/polymarket-paper-trader](https://github.com/agent-next/polymarket-paper-trader) | Paper trading with realistic fill simulation | Exact fee formula, FOK/FAK orders, SQLite source of truth, 657 tests |
 | [Benjam1nCup/Polymarket-trading-bot-python-V2](https://github.com/Benjam1nCup/Polymarket-trading-bot-python-V2) | Maker liquidity bot for short-interval markets | USDC → YES/NO splitting, balanced limit orders |
 | [predict-raven](https://github.com/Alchemist-X/predict-raven) | LLM forecasting agent, Brier-scored | Market-blind forecasting, transparent scoring |
+| [artvandelay/polymarket-agents](https://github.com/artvandelay/polymarket-agents) | MCP server + bot, Claude, SQLite | Closest architectural prior art |
+| [Polymarket/agents](https://github.com/Polymarket/agents) *(archived)* | Official framework, RAG + superforecasting | Prompt design; don't depend on it |
+| [warproxxx/poly_data](https://github.com/warproxxx/poly_data) | Historical market/trade retriever | Backtest corpus source |
+| Poly-Market-Maker | Market making with inventory mgmt | Reference for Phase M |
+| Resolution-Hunter | Buy below $1.00 pre-settlement | Untested strategy worth evaluating |
+
+Strategy findings from these are distilled in **[docs/RESEARCH.md](docs/RESEARCH.md)**.
 
 ---
 

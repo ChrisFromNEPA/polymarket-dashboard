@@ -13,6 +13,7 @@ const Data = (() => {
     portfolio: 'state/portfolio.json',
     decisions: 'state/decisions.json',
     resolutions: 'state/resolutions.json',
+    viability: 'state/viability.json',
   };
 
   let cache = null;

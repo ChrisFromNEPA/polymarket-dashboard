@@ -43,7 +43,53 @@ verified.
 
 ---
 
-## 0. Redo everything measured through a book ⚡ REV 2 — DO THIS FIRST
+## 0. REV 3 — Phase E is answered. The problem is now market selection. ⚡
+
+**Phase E is resolved and the answer is GO.** After the orderbook fix, **99.67%
+of markets cost ≤2¢ to enter** (was 4.3%), median required edge **0.0005**.
+Taker execution is viable. Integrity is at **0 errors**. Good work.
+
+**The binding constraint has moved.** It is no longer cost — it is that we are
+trading markets nobody could be right about. See
+[`docs/RESEARCH.md`](../docs/RESEARCH.md) §1.
+
+| Criterion | Target | What we hold |
+|---|---|---|
+| Horizon | **7–60 days** | 2028 election — **>800 days** ❌ |
+| Price | **$0.10–$0.90** | 0.05–0.14 — **extreme** ❌ |
+| Structure | **binary** | 128-outcome NegRisk ❌ |
+
+The dashboard's new **Market Fit** tab says it plainly: *3 of 4 positions sit
+outside the target profile.*
+
+**Do these in order:**
+
+1. **Market selection filter** 🔴 *biggest single lever — bigger than any model work*
+   - horizon 7–60 days, P(Yes) 0.10–0.90, binary only, volume ≥$50k
+   - exclude NegRisk multi-outcome events for now
+   - apply in the scan, before the strategy ever sees a market
+2. **Fix `calculate_fee`** 🔴 — `agent/engine/fills.py`. Real formula is
+   `Θ × C × p × (1−p)`; ours uses `min(p, 1−p) × cost`, which **understates fees
+   ~4× at p=0.20 and ~19× at p=0.05**. Correct for p≥0.5 only. Harmless today
+   only because `fee_rate` is 0 — fix before enabling fees.
+3. **Publish `end_date` on positions** 🟠 — the Market Fit horizon check reads
+   "no end_date" for every position and cannot run without it.
+4. **Tighten position cap 5% → 2%** 🟠, and target 10–20 uncorrelated positions
+   (RESEARCH §2.1).
+5. **Test fee-free geopolitical/world-event markets** 🟠 — zero taker fee plus
+   1-tick spreads may be the cheapest venue on the platform.
+
+Then the forecaster, per RESEARCH §2.2–2.4: structured JSON output, evidence
+supplied in-prompt with source tags, **citation required — if it cannot cite, it
+is hallucinating**, `skip` as a valid action, and Haiku→Sonnet→Opus routing with
+inference capped at 5% of bet size.
+
+⚠️ **Calibration reality:** LLM "high confidence" resolves correctly **~64% of the
+time, not 90%**. Quarter-Kelly is not conservatism, it is correction.
+
+---
+
+## 0b. Redo everything measured through a book ✅ DONE (rev 2)
 
 Every number derived from an orderbook is void. In order:
 
