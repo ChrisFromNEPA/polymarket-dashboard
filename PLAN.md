@@ -8,6 +8,9 @@
 
 ---
 
+> ### 👉 Hermes: the current task list is [`reports/WORK-ORDER.md`](reports/WORK-ORDER.md).
+> This document is the *why*. That one is the *what next*, in order.
+
 ## 0. What changed in v3 — realignment with the actual goal
 
 📄 **Read [`docs/ECONOMICS.md`](docs/ECONOMICS.md) first. It is the most important

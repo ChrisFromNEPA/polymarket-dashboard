@@ -1,5 +1,9 @@
 # Build Status Log
 
+> ### 👉 Hermes: read [`reports/WORK-ORDER.md`](WORK-ORDER.md) first.
+> It is the single ordered task list and supersedes any "next steps" below.
+> **Trading cycles are frozen** until its §1 and §2 are complete.
+
 Newest entry at top. See [PLAN.md](../PLAN.md) §9 for the reporting protocol.
 
 Hermes: append your entries above the separator. Keep each entry short — detailed findings belong in `reports/phase-N-report.md`.
