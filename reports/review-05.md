@@ -105,12 +105,36 @@ retrieval accept it, so the bound is structural rather than aspirational.
 
 ---
 
-## 4. 🟠 Oracle proves only that Brier arithmetic is wired up
+## 4. 🔴 The oracle threshold false-negatives on a well-calibrated corpus
 
-`control_oracle` is handed `market.outcome` directly, so `brier_delta < -0.1` is
-guaranteed. That is fine as an upper bound, but it should be described as a
-plumbing check — it cannot fail for an interesting reason, and it should not be
-counted as evidence the harness is sound.
+**Found by CI on its first run**, via a test of mine that failed for a better
+reason than I wrote it for.
+
+`verify_controls` requires `brier_delta < -0.1` for oracle. But `brier_delta` is
+bounded by how badly the market was priced: on a well-calibrated corpus
+`brier_market` is already ~0.024, so **even a perfect oracle can only reach
+−0.024** and the check reports:
+
+```
+✗ oracle failed — wiring broken
+```
+
+…when nothing is broken. Measured on a six-market calibrated fixture:
+`brier_agent = 0.0001`, `brier_market = 0.0242`, `delta = −0.0241`. Fails a
+threshold of −0.1 by 4×.
+
+This is the **same class of defect as the contamination probe (§2)**: the
+threshold encodes an assumption about how mispriced the market is, rather than
+testing whether the harness works. Both will fire spuriously precisely when the
+data is *good*, which is when a spurious alarm is most likely to be rationalised
+away.
+
+Separately, `control_oracle` is handed `market.outcome` directly, so it can never
+fail for an interesting reason. It is a plumbing check and should be labelled one.
+
+**Fix:** assert oracle achieves near-zero *absolute* Brier (`brier_agent < 0.001`)
+and wins every market (`edge_count == count`), rather than a fixed delta against
+an unknown baseline.
 
 ---
 
@@ -162,5 +186,5 @@ a solved problem rather than a recurring risk.
 | 1 | Route control trades through `FillEngine`; assert random loses money — or state plainly that P&L backtesting is impossible without book history | 🔴 |
 | 2 | Replace the contamination probe with one that runs the real forecaster; mark it *not implementable* until then | 🔴 |
 | 3 | Add `as_of` to the forecaster interface so point-in-time is structural | 🟠 |
-| 4 | Relabel oracle as a plumbing check | 🟡 |
+| 4 | Fix the oracle check: assert `brier_agent < 0.001` and `edge_count == count`, not a fixed −0.1 delta | 🔴 |
 | 5 | Sample at controlled time-to-resolution; implement or delete `sample_every_n` | 🟡 |

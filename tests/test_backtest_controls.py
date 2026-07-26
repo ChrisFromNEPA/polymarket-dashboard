@@ -111,16 +111,42 @@ def test_verify_controls_flags_a_broken_parrot():
 # ── Control: oracle ──────────────────────────────────────────
 
 def test_oracle_is_handed_the_answer_and_therefore_proves_only_wiring():
-    """Oracle receives the outcome directly, so passing is guaranteed.
+    """Oracle receives the outcome directly, so a near-zero Brier is guaranteed.
 
     Worth pinning explicitly: this control tests that Brier plumbing is connected,
     NOT that the harness is sound. It cannot fail for an interesting reason.
     """
     h = ReplayHarness(CALIBRATED)
     r = h.run(control_oracle, "oracle")
-    assert r.brier_agent == pytest.approx(0.0001, abs=1e-4)  # clamped to 0.01/0.99
-    assert r.brier_delta < -0.1
-    assert h.verify_controls([r])["oracle → strongly beats market"][0] is True
+    # Forecasts are clamped to [0.01, 0.99], so even perfect knowledge scores
+    # (0.99 - 1)^2 = 0.0001 rather than 0.
+    assert r.brier_agent == pytest.approx(0.0001, abs=1e-9)
+    assert r.brier_delta < 0
+    assert r.edge_count == r.count, "a perfect oracle should win every market"
+
+
+def test_oracle_threshold_false_negatives_on_a_calibrated_corpus():
+    """`verify_controls` requires oracle to beat the market by 0.1 Brier.
+
+    On a well-calibrated corpus `brier_market` is already ~0.024, so **even a
+    perfect oracle can only achieve −0.024** and the check reports
+    "✗ oracle failed — wiring broken" when nothing is broken.
+
+    This is the same class of defect as the contamination probe: the threshold
+    encodes an assumption about how badly priced the market is, not about whether
+    the harness works. Found by CI on its first run.
+
+    See reports/review-05.md §4.
+    """
+    h = ReplayHarness(CALIBRATED)
+    r = h.run(control_oracle, "oracle")
+
+    # The oracle is essentially perfect...
+    assert r.brier_agent < 0.001
+    # ...yet the control reports failure.
+    passed, msg = h.verify_controls([r])["oracle → strongly beats market"]
+    assert passed is False, "flip this assertion when the threshold is fixed"
+    assert "failed" in msg.lower()
 
 
 def test_non_oracle_strategies_never_receive_the_outcome():
