@@ -169,25 +169,143 @@ class RiskManager:
                 kelly_fraction=kelly,
             )
 
+        # NOTE: the invariant above uses a midpoint-derived entry_price, which is
+        # NOT what the book fills at. It is a cheap pre-filter only. The binding
+        # check is validate_execution(), which runs against the quoted fill.
+
         # ── Approved ──
         sized_shares = round(sized_shares)
         if sized_shares < self.MIN_SHARES:
             sized_shares = self.MIN_SHARES
 
-        self.daily_trade_count += 1
-        from datetime import datetime, timezone
-        self.last_trade_times[proposal.condition_id] = (
-            datetime.now(timezone.utc).isoformat()
-        )
+        # Budget side effects (daily cap, cooldown) are NOT applied here — a
+        # proposal that clears sizing can still be rejected by validate_execution().
+        # Charging it against the cap before it trades would let unfilled
+        # proposals starve real ones. See commit_trade().
 
         return RiskDecision(
             approved=True,
             proposal=proposal,
             sized_shares=sized_shares,
             kelly_fraction=kelly,
-            reason=f"Approved: {sized_shares:.0f} shares at {self.KELLY_FRACTION:.0%}-Kelly (full Kelly = {kelly:.4f})",
+            reason=f"Approved for quoting: {sized_shares:.0f} shares at {self.KELLY_FRACTION:.0%}-Kelly (full Kelly = {kelly:.4f})",
             warnings=warnings,
         )
+
+    # ── Execution-price validation ───────────────────────────
+
+    def validate_execution(
+        self,
+        proposal: TradeProposal,
+        fill,                       # engine.fills.FillResult (quoted, not committed)
+        actual_outcome: str,
+        actual_direction: str = "BUY",
+        marks: dict[str, float] = None,
+    ) -> RiskDecision:
+        """Validate the price we are ACTUALLY about to pay.
+
+        This is the binding invariant. `evaluate()` sizes from the midpoint, which
+        is not what the book fills at — on thin books the two diverge enormously.
+        A market whose midpoint implies 0.8625 can fill at 0.9990.
+
+        Approving on the midpoint and executing on the book is precisely how the
+        agent repeatedly bought NO at $0.999 for contracts it valued at $0.91.
+
+        Runs AFTER the fill is quoted and BEFORE it is committed. The fill engine
+        is pure, so the quote and the eventual commit use the same book snapshot.
+        """
+        if not fill or not fill.filled or fill.filled_size <= 0:
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                reason=f"No executable fill: {getattr(fill, 'reason', 'no quote')}",
+            )
+
+        # Price we truly pay, including fees.
+        exec_price = fill.effective_price
+
+        # agent_probability is always P(YES); flip it for the NO side.
+        # Normalised deliberately: a stray lowercase "yes" would fall through to
+        # the NO branch and silently INVERT fair value, turning this guard into
+        # its own opposite. Anything unrecognised is refused rather than guessed.
+        side = str(actual_outcome).strip().lower()
+        if side == "yes":
+            fair_value = proposal.agent_probability
+        elif side == "no":
+            fair_value = 1.0 - proposal.agent_probability
+        else:
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                sized_shares=fill.filled_size,
+                reason=(
+                    f"Unrecognised outcome {actual_outcome!r} — cannot determine "
+                    f"fair value, so the trade cannot be validated."
+                ),
+            )
+
+        if actual_direction == "BUY" and exec_price > fair_value:
+            loss = (exec_price - fair_value) * fill.filled_size
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                sized_shares=fill.filled_size,
+                reason=(
+                    f"Execution price ${exec_price:.4f} exceeds fair value "
+                    f"${fair_value:.4f} for {actual_outcome} "
+                    f"(${loss:.2f} lost at entry). Paying above your own estimate "
+                    f"is never justified."
+                ),
+            )
+
+        if actual_direction == "SELL" and exec_price < fair_value:
+            loss = (fair_value - exec_price) * fill.filled_size
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                sized_shares=fill.filled_size,
+                reason=(
+                    f"Execution price ${exec_price:.4f} below fair value "
+                    f"${fair_value:.4f} for {actual_outcome} "
+                    f"(${loss:.2f} given away at exit)."
+                ),
+            )
+
+        # Sizing used the midpoint, so the real cost can breach the position cap
+        # even though the share count looked fine.
+        current_equity = self.portfolio.get_total_equity(marks or {})
+        actual_cost = fill.total_cost + fill.fee
+        if current_equity > 0 and actual_cost > current_equity * self.MAX_POSITION_PCT:
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                sized_shares=fill.filled_size,
+                reason=(
+                    f"Actual cost ${actual_cost:.2f} exceeds "
+                    f"{self.MAX_POSITION_PCT:.0%} position cap "
+                    f"(${current_equity * self.MAX_POSITION_PCT:.2f}) at the real fill price"
+                ),
+            )
+
+        edge = (fair_value - exec_price) if actual_direction == "BUY" else (exec_price - fair_value)
+        return RiskDecision(
+            approved=True,
+            proposal=proposal,
+            sized_shares=fill.filled_size,
+            reason=(
+                f"Execution validated: ${exec_price:.4f} vs fair ${fair_value:.4f} "
+                f"({edge:+.4f}/share edge after fees)"
+            ),
+        )
+
+    def commit_trade(self, condition_id: str) -> None:
+        """Charge a trade against the daily cap and start its cooldown.
+
+        Called only after a fill is actually committed to the portfolio.
+        """
+        from datetime import datetime, timezone
+        self.daily_trade_count += 1
+        self.last_trade_times[condition_id] = datetime.now(timezone.utc).isoformat()
 
     # ── Kelly criterion ──────────────────────────────────────
 

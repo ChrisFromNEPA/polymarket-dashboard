@@ -65,7 +65,7 @@ async def tool_run_cycle(max_markets: int = 100) -> dict:
     pub = get_publisher()
     await pub.publish_all(agent, _run_history[-5:])
     pub.publish_decisions(agent.get_decisions_log(_run_history[-5:]))
-    pub.publish_scorecard(agent.get_scorecard(_run_history[-20:]))
+    pub.publish_scorecard(await agent.get_scorecard(_run_history[-20:]))
 
     return {
         "cycle_time": result.time,
@@ -97,13 +97,13 @@ async def tool_run_cycle(max_markets: int = 100) -> dict:
 async def tool_get_portfolio() -> dict:
     """Get current portfolio snapshot — cash, positions, recent trades."""
     agent = get_agent()
-    return agent.get_portfolio_snapshot()
+    return await agent.get_portfolio_snapshot()
 
 
 async def tool_get_scorecard() -> dict:
     """Get agent performance metrics — Brier score, P&L, trade counts."""
     agent = get_agent()
-    return agent.get_scorecard(_run_history[-20:])
+    return await agent.get_scorecard(_run_history[-20:])
 
 
 async def tool_get_decisions(limit: int = 20) -> dict:

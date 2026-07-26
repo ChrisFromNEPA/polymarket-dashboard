@@ -50,7 +50,7 @@ class Publisher:
             "brier_market": None,
             "brier_delta": None,
             "brier_delta_ci95": None,
-            "verdict": "no_detectable_edge",
+            "verdict": None,
             "ece": None,
             "by_strategy": {},
             "benchmarks": {
@@ -59,6 +59,11 @@ class Publisher:
             },
         }
         defaults.update(scorecard)
+
+        # A verdict is a claim about evidence. Never assert one without any.
+        if not defaults.get("n_resolved"):
+            defaults["verdict"] = None
+
         defaults["updated_at"] = datetime.now(timezone.utc).isoformat()
         return self._write("scorecard.json", defaults)
 

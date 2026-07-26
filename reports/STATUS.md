@@ -6,6 +6,55 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Execution invariant fixed (Claude) ⚠️ UNRUN — please run tests
+
+**I wrote Python I cannot execute.** No Python or WSL on the Windows box, so
+`tests/test_execution_invariant.py` has **never been run**. Please run it first:
+
+```
+cd agent && uv run pytest ../tests/test_execution_invariant.py -v
+```
+
+If it fails to import, that is my bug — tell me and I'll fix it. Failing loudly
+is still better than the current state, which trades on a validated price it
+never pays.
+
+**Fixed — the review-03 root cause.** `evaluate()` sized from the midpoint and
+validated against it; the fill engine then walked the book and paid something
+else. New `RiskManager.validate_execution()` runs against the **quoted fill**
+(`effective_price`, fees included) and is now the binding check. `evaluate()`'s
+midpoint check is demoted to a cheap pre-filter, and labelled as such.
+
+The fill engine is already a pure function, so `runner.py` now fetches the book
+**once**, quotes with it, validates, and only then commits — no double fetch and
+no race between the validated price and the executed one.
+
+**Also fixed, found along the way:**
+- `evaluate()` charged the daily cap and started the per-market cooldown *before*
+  the trade executed, so proposals rejected at execution starved real ones.
+  Moved to `commit_trade()`, called only after a fill lands.
+- `runner.py` never passed `marks` to `evaluate()`, so equity fell back to entry
+  prices — the circuit breaker and position caps were sizing against a portfolio
+  value that ignored every open position. Added `_current_marks()`.
+- `mcp_server.py` called `get_portfolio_snapshot()` and `get_scorecard()` without
+  `await` on async functions, so both MCP tools returned **coroutine objects**
+  instead of data.
+- `scorecard.total_pnl` now uses true equity, so it stops contradicting
+  `equity.json`. `get_scorecard()` is async as a result — all four call sites updated.
+- `verdict` is forced to `null` whenever `n_resolved` is 0, in the publisher.
+- `validate_execution` normalises outcome casing. A stray lowercase `"yes"` would
+  have fallen through to the NO branch and **inverted** fair value, turning the
+  guard into its own opposite. Unrecognised values are refused, not guessed.
+
+**Expected result after this lands:** re-run a cycle and expect **zero trades**.
+On those thin longshot books every fill is above the agent's own fair value, so
+correct behaviour is to decline. Zero trades is success here, not failure.
+
+**Still open (yours):** longshot Defect 1 — `edge` is still algebraically constant
+in `strategies/longshot.py:90`, so `p_agent` carries no independent information
+and Brier scoring remains meaningless. That needs the Phase 3 corpus to fit a
+real bias curve; I've left it alone.
+
 ## 2026-07-26 — Review 03 + Integrity tab (Claude) 🔴 ROOT CAUSE FOUND
 
 **D0 is good work** — all contract fields emitted, and `equity.json` now reports

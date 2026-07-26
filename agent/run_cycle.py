@@ -46,7 +46,9 @@ async def run_cycle(commit: bool = False, reset: bool = False):
         pub.publish_equity([{"time": datetime.now(timezone.utc).isoformat(),
                              "cash": 10000, "positions_value": 0.0,
                              "total_equity": 10000, "pnl": 0.0, "pnl_pct": 0.0}])
-        pub.publish_scorecard({"n_resolved": 0, "verdict": "no_detectable_edge"})
+        # verdict stays null until something actually resolves — a stored verdict
+        # with zero evidence is a trap for anything else reading this file.
+        pub.publish_scorecard({"n_resolved": 0, "verdict": None})
         pub.publish_decisions([])
         pub.publish_calibration([])
         pub.publish_resolutions([])
@@ -63,7 +65,7 @@ async def run_cycle(commit: bool = False, reset: bool = False):
     run_history = [result]
     await pub.publish_all(agent, run_history)
     pub.publish_decisions(agent.get_decisions_log(run_history))
-    pub.publish_scorecard(agent.get_scorecard(run_history))
+    pub.publish_scorecard(await agent.get_scorecard(run_history))
     pub.publish_meta({
         "mode": "paper",
         "cycles_total": 1,

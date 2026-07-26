@@ -107,9 +107,14 @@ class AutonomousAgent:
             result.errors.append(f"Strategy scan failed: {e}")
             return result
 
+        # 2b. Current marks for open positions. Without these, equity falls back
+        # to entry prices, so the circuit breaker and position caps size against
+        # a portfolio value that ignores every open position's real worth.
+        marks = await self._current_marks()
+
         # 3. Risk evaluate each proposal
         for proposal in strategy_result.proposals:
-            risk = self.risk_manager.evaluate(proposal)
+            risk = self.risk_manager.evaluate(proposal, marks=marks)
             decision = AgentDecision(
                 time=now,
                 proposal=proposal,
@@ -148,14 +153,37 @@ class AutonomousAgent:
                     )
 
             try:
+                # 4a. QUOTE the fill. The fill engine is pure — nothing is
+                # committed until add_position() below. Fetch the book once and
+                # reuse it so the validated quote and the committed fill are
+                # the same prices, with no race between them.
+                book = await self.client.get_book(actual_token)
+
                 if actual_direction == "BUY":
                     fill = await self.fill_engine.market_buy(
-                        actual_token, risk.sized_shares
+                        actual_token, risk.sized_shares, book=book
                     )
                 else:
                     fill = await self.fill_engine.market_sell(
-                        actual_token, risk.sized_shares
+                        actual_token, risk.sized_shares, book=book
                     )
+
+                # 4b. Validate the price we will ACTUALLY pay. risk.evaluate()
+                # sized from the midpoint; this is the binding check.
+                exec_check = self.risk_manager.validate_execution(
+                    proposal=proposal,
+                    fill=fill,
+                    actual_outcome=actual_outcome,
+                    actual_direction=actual_direction,
+                    marks=marks,
+                )
+                if not exec_check.approved:
+                    decision.risk_decision = exec_check
+                    decision.filled = False
+                    decision.error = exec_check.reason
+                    result.proposals_approved -= 1
+                    result.decisions.append(decision)
+                    continue
 
                 if fill.filled:
                     # 5. Update portfolio with fair estimate for exit tracking
@@ -175,6 +203,8 @@ class AutonomousAgent:
                     decision.fill_shares = fill.filled_size
                     decision.fill_cost = fill.total_cost
                     result.trades_executed += 1
+                    # Charge the daily cap / cooldown only now that it really traded.
+                    self.risk_manager.commit_trade(proposal.condition_id)
                 else:
                     decision.error = f"Fill rejected: {fill.reason}"
 
@@ -189,6 +219,23 @@ class AutonomousAgent:
         result.portfolio_value = self.portfolio.cash  # simplified
 
         return result
+
+    # ── Marks ────────────────────────────────────────────────
+
+    async def _current_marks(self) -> dict[str, float]:
+        """Current mark price per open position, keyed as token_id:outcome.
+
+        Each outcome token is marked from its OWN book — never derived from the
+        opposite side. Deriving NO from the YES book is what mismarked every NO
+        position in the original dashboard.
+        """
+        marks: dict[str, float] = {}
+        for key, pos in self.portfolio.positions.items():
+            try:
+                marks[key] = await self.client.get_midpoint(pos.token_id)
+            except Exception:
+                marks[key] = pos.avg_entry_price  # conservative: no phantom P&L
+        return marks
 
     # ── Position review ──────────────────────────────────────
 
@@ -252,7 +299,7 @@ class AutonomousAgent:
 
     # ── Reporting ────────────────────────────────────────────
 
-    def get_scorecard(self, results: list[AgentRunResult]) -> dict:
+    async def get_scorecard(self, results: list[AgentRunResult]) -> dict:
         """Generate a scorecard from run history.
 
         Returns data suitable for scorecard.json publishing.
@@ -260,6 +307,12 @@ class AutonomousAgent:
         total_trades = sum(r.trades_executed for r in results)
         total_proposals = sum(r.proposals_generated for r in results)
         total_approved = sum(r.proposals_approved for r in results)
+
+        # P&L must be true equity, not cash. Publishing cash - starting_cash here
+        # while equity.json published cash + positions made the two files
+        # contradict each other by $2,000 on the same run.
+        marks = await self._current_marks()
+        total_equity = self.portfolio.get_total_equity(marks)
 
         # Brier scores require market resolution — placeholder until
         # we have enough resolved markets
@@ -271,7 +324,8 @@ class AutonomousAgent:
             "approval_rate": total_approved / max(total_proposals, 1),
             "current_cash": self.portfolio.cash,
             "starting_cash": self.portfolio.starting_cash,
-            "total_pnl": self.portfolio.cash - self.portfolio.starting_cash,
+            "total_equity": total_equity,
+            "total_pnl": total_equity - self.portfolio.starting_cash,
             "open_positions": self.portfolio.open_position_count,
             "total_trade_count": self.portfolio.total_trades,
             "strategy": self.strategy.name,
