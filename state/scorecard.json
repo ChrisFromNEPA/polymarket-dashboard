@@ -4,7 +4,7 @@
   "brier_market": null,
   "brier_delta": null,
   "brier_delta_ci95": null,
-  "verdict": "no_detectable_edge",
+  "verdict": null,
   "ece": null,
   "by_strategy": {},
   "benchmarks": {
@@ -13,14 +13,15 @@
   },
   "total_cycles": 1,
   "total_proposals": 4,
-  "total_approved": 4,
-  "total_trades": 4,
-  "approval_rate": 1.0,
-  "current_cash": 7823.179,
+  "total_approved": 0,
+  "total_trades": 0,
+  "approval_rate": 0.0,
+  "current_cash": 10000,
   "starting_cash": 10000,
-  "total_pnl": -2176.821,
-  "open_positions": 4,
-  "total_trade_count": 4,
+  "total_equity": 10000.0,
+  "total_pnl": 0.0,
+  "open_positions": 0,
+  "total_trade_count": 0,
   "strategy": "favorite-longshot",
-  "updated_at": "2026-07-26T06:16:08.367415+00:00"
+  "updated_at": "2026-07-26T14:48:20.310050+00:00"
 }

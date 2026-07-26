@@ -130,7 +130,7 @@ class Publisher:
         files.append(self.publish_equity(points[-200:]))
 
         # Scorecard
-        scorecard = agent.get_scorecard(run_history or [])
+        scorecard = await agent.get_scorecard(run_history or [])
         files.append(self.publish_scorecard(scorecard))
 
         # Decisions

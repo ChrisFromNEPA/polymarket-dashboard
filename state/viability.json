@@ -1,0 +1,129 @@
+{
+  "generated_at": "2026-07-26T14:51:16.558180+00:00",
+  "probe_size": "$200",
+  "probe_sizes": [
+    "$50",
+    "$200",
+    "$1000"
+  ],
+  "markets_measured": 300,
+  "markets_with_depth": 299,
+  "markets_under_2c_cost": 13,
+  "viable_fraction": 0.0433,
+  "required_edge_p10": 0.49,
+  "required_edge_p50": 0.499,
+  "required_edge_p90": 0.998,
+  "by_segment": [
+    {
+      "segment": "horizon: 2-30d",
+      "markets": 18,
+      "with_depth": 18,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.49,
+      "required_edge_p90": 0.499,
+      "round_trip_p50": 0.98
+    },
+    {
+      "segment": "horizon: 30-180d",
+      "markets": 89,
+      "with_depth": 89,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.998,
+      "required_edge_p90": 0.998,
+      "round_trip_p50": 0.998
+    },
+    {
+      "segment": "horizon: <2d",
+      "markets": 6,
+      "with_depth": 6,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.0025,
+      "required_edge_p50": 0.0075,
+      "required_edge_p90": 0.0357,
+      "round_trip_p50": 0.0112
+    },
+    {
+      "segment": "horizon: >180d",
+      "markets": 176,
+      "with_depth": 176,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.499,
+      "required_edge_p50": 0.499,
+      "required_edge_p90": 0.499,
+      "round_trip_p50": 0.998
+    },
+    {
+      "segment": "horizon: expired",
+      "markets": 10,
+      "with_depth": 9,
+      "depth_rate": 0.9,
+      "required_edge_p10": 0.004,
+      "required_edge_p50": 0.0357,
+      "required_edge_p90": 0.2765,
+      "round_trip_p50": 0.1213
+    },
+    {
+      "segment": "horizon: unknown",
+      "markets": 1,
+      "with_depth": 1,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.49,
+      "required_edge_p90": 0.49,
+      "round_trip_p50": 0.98
+    },
+    {
+      "segment": "liquidity: deep (>=500k)",
+      "markets": 200,
+      "with_depth": 200,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.499,
+      "required_edge_p90": 0.998,
+      "round_trip_p50": 0.998
+    },
+    {
+      "segment": "liquidity: mid (100k-500k)",
+      "markets": 100,
+      "with_depth": 99,
+      "depth_rate": 0.99,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.499,
+      "required_edge_p90": 0.998,
+      "round_trip_p50": 0.998
+    },
+    {
+      "segment": "price: extreme (<5% or >95%)",
+      "markets": 59,
+      "with_depth": 59,
+      "depth_rate": 1.0,
+      "required_edge_p10": -0.0,
+      "required_edge_p50": 0.998,
+      "required_edge_p90": 0.998,
+      "round_trip_p50": null
+    },
+    {
+      "segment": "price: mid-range (20-80%)",
+      "markets": 240,
+      "with_depth": 240,
+      "depth_rate": 1.0,
+      "required_edge_p10": 0.49,
+      "required_edge_p50": 0.499,
+      "required_edge_p90": 0.499,
+      "round_trip_p50": 0.998
+    },
+    {
+      "segment": "price: unknown",
+      "markets": 1,
+      "with_depth": 0,
+      "depth_rate": 0.0,
+      "required_edge_p10": null,
+      "required_edge_p50": null,
+      "required_edge_p90": null,
+      "round_trip_p50": null
+    }
+  ],
+  "errors": 0
+}

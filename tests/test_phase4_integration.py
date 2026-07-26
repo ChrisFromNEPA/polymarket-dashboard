@@ -74,7 +74,7 @@ async def test_agent_full_cycle_live():
     assert result.cash <= 10_000, f"Cash should be ≤ starting: {result.cash}"
 
     # Scorecard
-    scorecard = agent.get_scorecard([result])
+    scorecard = await agent.get_scorecard([result])
     assert scorecard["total_cycles"] == 1
     assert scorecard["strategy"] == "favorite-longshot"
     print(f"\nScorecard: {json.dumps(scorecard, indent=2)}")
