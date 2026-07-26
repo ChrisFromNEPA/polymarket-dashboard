@@ -126,6 +126,12 @@ makes LLM forecasts tradeable. Prior art to mine is catalogued in v2 §2.
 live cycles until those are done, then reset the portfolio — the current
 `state/` records an invalid run.
 
+## 2026-07-26 — Phase 3 — complete ✅
+
+**Done:** Backtest corpus (62 resolved markets with 12h price history), replay harness with 4 control strategies, Book Recorder (20-market L2 snapshots). All four §4.4 controls pass: random loses (+0.135), market-parrot ≈ 0 (+0.000003), oracle dominates (-0.2086), contamination probe clean (+0.041). Defect 1 confirmed: favorite-longshot delta = -0.0006 — the constant ±0.05 adds zero predictive power.
+
+**Next:** Phase 7 (calibrated LLM forecaster) — the real edge candidate from PLAN v2. Track B needs cron scheduling for continuous book data accrual.
+
 ## 2026-07-26 — Remediation 02 — defects 6,3,5,4 done ✅
 
 **Done:** Diagnosed spread problem (NegRisk political longshots dominate trending — 0/40 markets have tight spreads). Fixed true equity (marks-aware in circuit breaker). Deleted dead `_realistic_fill` + `mode` param — one fill path now. Added fair_value invariant (reject execution_price > fair_value). Reset portfolio.
