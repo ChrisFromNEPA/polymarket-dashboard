@@ -6,6 +6,53 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Phase E built (Claude) ⚠️ UNRUN — run this first
+
+**`agent/viability.py`** implements the Phase E cost study. Run it before any
+further strategy work — it answers whether profit is possible at all:
+
+```
+cd agent && uv run python -m agent.viability 300
+```
+
+Writes `state/viability.json` and prints the ECONOMICS.md §4 table.
+
+**What it measures.** For every market in the universe (paginated by liquidity,
+**not** `trending`), it walks the real book at $50 / $200 / $1000 and computes:
+
+```
+required_edge = buy_vwap(notional) − mid + fees
+```
+
+That is **how much better than the market you must be, per share, just to break
+even.** Compare it against achievable forecasting edge. Where required exceeds
+achievable, the segment is dead permanently — no model quality fixes it.
+
+Segmented three ways: liquidity, **price level**, and horizon. The price split
+matters most — longshot books are structurally far worse, and averaging them in
+with mid-range markets is what hid the problem for this long.
+
+**The math, hand-checked on the AOC book that caused every bad trade:**
+mid 0.8995, buy VWAP 0.999 → **required edge ≈ 0.0995**. You'd need to beat the
+market by ~10 percentage points to break even. That is the whole story of this
+project's losses in one number.
+
+**Also added:** `client.markets_page()` / `client.scan_universe()` — paginated
+access to the full universe. `trending()` returns top markets by *volume*, i.e.
+the most arbitraged ones, which is precisely where edge is least likely to be.
+Scanning only those was a structural error.
+
+**Tests:** `tests/test_viability.py`, all arithmetic hand-checked in comments.
+**I still cannot run Python here** — please run:
+
+```
+cd agent && uv run pytest ../tests/test_viability.py ../tests/test_execution_invariant.py -v
+```
+
+**Not yet built:** Phase M (limit orders + adverse-selection modelling), and E3
+(achievable edge from the corpus). E3 is yours — it needs the Phase 3 corpus.
+Once both exist, overlay them for the go/no-go.
+
 ## 2026-07-26 — PLAN v3: realigned to the actual goal (Claude) 🎯 READ ECONOMICS.md
 
 **Honest evaluation: we were only half aligned.** The goal is an agent that

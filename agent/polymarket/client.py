@@ -83,6 +83,60 @@ class PolymarketClient:
         )
         return [_parse_market(m) for m in markets_raw]
 
+    async def markets_page(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        active: bool = True,
+        closed: bool = False,
+        order: str = "liquidityNum",
+        ascending: bool = False,
+        liquidity_min: Optional[float] = None,
+        volume_min: Optional[float] = None,
+    ) -> list[Market]:
+        """One page of the market universe.
+
+        `trending()` returns top events by VOLUME — the most watched, most
+        arbitraged markets on the platform, i.e. where edge is least likely to
+        exist. Scanning only those is why the agent kept finding either no edge
+        or untradeable books. This exposes the whole universe so the viable band
+        between "efficient" and "untradeable" can actually be measured.
+        """
+        url = (
+            f"{GAMMA}/markets?limit={limit}&offset={offset}"
+            f"&active={str(active).lower()}&closed={str(closed).lower()}"
+            f"&order={order}&ascending={str(ascending).lower()}"
+        )
+        if liquidity_min is not None:
+            url += f"&liquidity_num_min={liquidity_min}"
+        if volume_min is not None:
+            url += f"&volume_num_min={volume_min}"
+        raw = await self._get(url)
+        if not isinstance(raw, list):
+            return []
+        return [_parse_market(m) for m in raw]
+
+    async def scan_universe(
+        self,
+        max_markets: int = 500,
+        page_size: int = 100,
+        liquidity_min: Optional[float] = None,
+    ) -> list[Market]:
+        """Walk the full market universe, ordered by liquidity descending."""
+        out: list[Market] = []
+        offset = 0
+        while len(out) < max_markets:
+            page = await self.markets_page(
+                limit=min(page_size, max_markets - len(out)),
+                offset=offset,
+                liquidity_min=liquidity_min,
+            )
+            if not page:
+                break
+            out.extend(page)
+            offset += len(page)
+        return out[:max_markets]
+
     # ── CLOB API — Prices & Orderbooks ───────────────────────
 
     async def get_book(self, token_id: str) -> OrderBook:
