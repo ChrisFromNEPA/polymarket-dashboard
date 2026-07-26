@@ -18,6 +18,7 @@
     <button class="tab" data-tab="portfolio">Portfolio</button>
     <button class="tab" data-tab="scanner">Arbitrage Scanner</button>
     <button class="tab" data-tab="news">News Edge</button>
+    <button class="tab" data-tab="agent">🤖 Agent</button>
   </nav>
   <div class="header-right">
     <div class="balance" id="header-balance">$10,000.00</div>
@@ -98,6 +99,21 @@
     <div id="news-container">
       <p class="empty">Click "Load Top Markets" to see markets with news-edge potential.</p>
     </div>
+  </section>
+
+  <!-- AGENT TAB -->
+  <section id="tab-agent" class="tab-content">
+    <div class="agent-controls">
+      <button id="agent-refresh-btn">🔄 Refresh Agent State</button>
+      <span class="agent-status" id="agent-status">Loading...</span>
+    </div>
+    <div class="agent-summary" id="agent-summary"></div>
+    <h2>Open Positions</h2>
+    <div id="agent-positions"></div>
+    <h2>Equity Curve</h2>
+    <div id="agent-equity-chart" style="height:200px;background:var(--bg);border-radius:6px;margin-bottom:16px;"></div>
+    <h2>Recent Decisions</h2>
+    <div id="agent-decisions"></div>
   </section>
 </main>
 

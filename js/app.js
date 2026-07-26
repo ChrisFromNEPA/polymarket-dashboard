@@ -369,6 +369,98 @@ const App = (() => {
     return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // ── Agent Tab ──
+  async function loadAgentState() {
+    $('#agent-status').textContent = 'Loading...';
+    try {
+      const [portfolio, scorecard, decisions, equity] = await Promise.all([
+        fetch('state/portfolio.json?' + Date.now()).then(r => r.json()).catch(() => null),
+        fetch('state/scorecard.json?' + Date.now()).then(r => r.json()).catch(() => null),
+        fetch('state/decisions.json?' + Date.now()).then(r => r.json()).catch(() => null),
+        fetch('state/equity.json?' + Date.now()).then(r => r.json()).catch(() => null),
+      ]);
+
+      if (!portfolio) {
+        $('#agent-status').textContent = 'No agent data yet. Run the agent to generate state files.';
+        $('#agent-summary').innerHTML = '<p class="empty">Agent has not run yet. Start the MCP server and run a cycle.</p>';
+        return;
+      }
+
+      // Summary cards
+      const pnl = portfolio.pnl || 0;
+      const pnlPct = portfolio.pnl_pct || 0;
+      const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+      $('#agent-summary').innerHTML = `
+        <div class="portfolio-summary">
+          <div class="stat-card"><div class="stat-label">Cash</div><div class="stat-value">$${(portfolio.cash||0).toFixed(2)}</div></div>
+          <div class="stat-card"><div class="stat-label">P&L</div><div class="stat-value ${pnlClass}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%)</div></div>
+          <div class="stat-card"><div class="stat-label">Positions</div><div class="stat-value">${(portfolio.positions||[]).length}</div></div>
+          <div class="stat-card"><div class="stat-label">Trades</div><div class="stat-value">${(portfolio.recent_trades||[]).length}</div></div>
+        </div>
+      `;
+
+      // Positions
+      const positions = portfolio.positions || [];
+      if (positions.length === 0) {
+        $('#agent-positions').innerHTML = '<p class="empty">No open positions.</p>';
+      } else {
+        let html = '';
+        for (const p of positions) {
+          html += `<div class="position-card">
+            <div class="position-q">${escHtml(p.market_question || '?')}</div>
+            <div class="position-detail">${(p.outcome||'?').toUpperCase()} × ${(p.shares||0).toFixed(0)} @ $${(p.avg_entry_price||0).toFixed(4)}</div>
+            <div class="position-detail">Cost: $${((p.shares||0)*(p.avg_entry_price||0)).toFixed(2)}</div>
+            <span></span><span></span>
+          </div>`;
+        }
+        $('#agent-positions').innerHTML = html;
+      }
+
+      // Equity sparkline (simple bar chart)
+      if (equity && equity.points && equity.points.length > 0) {
+        const points = equity.points;
+        const max = Math.max(...points.map(p => p.cash));
+        const min = Math.min(...points.map(p => p.cash));
+        const range = max - min || 1;
+        const bars = points.map(p => {
+          const h = ((p.cash - min) / range) * 100;
+          return `<div style="flex:1;display:flex;align-items:flex-end;margin:0 1px;">
+            <div style="width:100%;height:${h}%;background:${p.cash >= 10000 ? 'var(--green)' : 'var(--red)'};min-height:2px;border-radius:2px 2px 0 0;" title="${new Date(p.time).toLocaleString()}: $${p.cash.toFixed(2)}"></div>
+          </div>`;
+        }).join('');
+        $('#agent-equity-chart').innerHTML = `<div style="display:flex;align-items:flex-end;height:100%;padding:8px;">${bars}</div>`;
+      } else {
+        $('#agent-equity-chart').innerHTML = '<p class="empty" style="line-height:200px">No equity data yet.</p>';
+      }
+
+      // Decisions
+      const decs = decisions?.decisions || [];
+      if (decs.length === 0) {
+        $('#agent-decisions').innerHTML = '<p class="empty">No decisions yet.</p>';
+      } else {
+        let html = '<div style="max-height:400px;overflow-y:auto;">';
+        for (const d of decs.slice(-30)) {
+          const time = d.time ? new Date(d.time).toLocaleString() : '';
+          const icon = d.filled ? '✅' : (d.approved ? '⚠️' : '❌');
+          html += `<div class="history-row">
+            <span>${time}</span>
+            <span>${icon}</span>
+            <span>${d.direction||'?'} ${d.outcome||'?'}</span>
+            <span title="${escHtml(d.market||'')}">${escHtml((d.market||'').slice(0,60))}</span>
+            <span>p_market=${(d.p_market*100).toFixed(1)}%→p_agent=${(d.p_agent*100).toFixed(1)}%</span>
+            ${d.filled ? `<span>${d.fill_shares} @ $${(d.fill_price||0).toFixed(4)}</span>` : `<span style="color:var(--text-dim)">${d.reason||''}</span>`}
+          </div>`;
+        }
+        html += '</div>';
+        $('#agent-decisions').innerHTML = html;
+      }
+
+      $('#agent-status').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+    } catch (e) {
+      $('#agent-status').textContent = `Error: ${e.message}`;
+    }
+  }
+
   // ── Init ──
   function init() {
     initTabs();
@@ -434,6 +526,11 @@ const App = (() => {
 
     // News
     $('#news-load-btn').addEventListener('click', loadNewsEdge);
+
+    // Agent
+    $('#agent-refresh-btn').addEventListener('click', loadAgentState);
+    // Also load when switching to Agent tab
+    document.querySelector('.tab[data-tab="agent"]').addEventListener('click', loadAgentState);
 
     // Keyboard shortcut: Escape closes modal
     document.addEventListener('keydown', (e) => {
