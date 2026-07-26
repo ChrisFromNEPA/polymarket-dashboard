@@ -26,6 +26,7 @@ class FillResult:
     avg_price: float  # volume-weighted average fill price
     total_cost: float  # avg_price * filled_size (positive = cash out)
     fee: float = 0.0
+    slippage_bps: float = 0.0  # basis points slippage vs midpoint
     reason: str = ""  # "filled", "partial — insufficient depth", "rejected — no book"
 
     @property
@@ -34,6 +35,29 @@ class FillResult:
         if self.filled_size == 0:
             return 0.0
         return (self.total_cost + self.fee) / self.filled_size
+
+    @property
+    def fee_pct(self) -> float:
+        """Fee as percentage of total cost."""
+        return (self.fee / self.total_cost * 100) if self.total_cost > 0 else 0.0
+
+
+def calculate_fee(fee_rate_bps: int, price: float, cost: float) -> float:
+    """Exact Polymarket fee formula.
+
+    From polymarket-paper-trader (agent-next):
+        fee = (bps / 10000) * min(price, 1 - price) * size
+
+    The fee is proportional to how close the price is to 0.50 (max uncertainty).
+    At extreme prices (near 0 or 1) the fee approaches zero.
+    Minimum fee of 0.0001 when fee_rate_bps > 0.
+    """
+    if fee_rate_bps == 0:
+        return 0.0
+    fee = (fee_rate_bps / 10_000) * min(price, 1.0 - price) * cost
+    if fee > 0.0:
+        fee = max(fee, 0.0001)
+    return fee
 
 
 class FillEngine:
@@ -147,7 +171,17 @@ class FillEngine:
             )
 
         avg_price = total_cost / filled_size if filled_size > 0 else 0.0
-        fee = total_cost * self.fee_rate
+        fee = calculate_fee(int(self.fee_rate * 10000), avg_price, total_cost)
+
+        # Slippage vs midpoint
+        slippage_bps = 0.0
+        if book.bids and book.asks:
+            mid = (book.bids[0].price + book.asks[0].price) / 2
+            if mid > 0:
+                if side == "buy":
+                    slippage_bps = (avg_price - mid) / mid * 10_000
+                else:
+                    slippage_bps = (mid - avg_price) / mid * 10_000
 
         reason = "filled" if remaining <= 0 else f"partial — {filled_size:.1f}/{size:.1f} filled, insufficient depth"
 
@@ -160,6 +194,7 @@ class FillEngine:
             avg_price=avg_price,
             total_cost=total_cost,
             fee=fee,
+            slippage_bps=slippage_bps,
             reason=reason,
         )
 
@@ -196,9 +231,8 @@ class FillEngine:
             price = float(price_data["price"])
 
             # Assume we can fill at this price for the requested size
-            # (Conservative: if /price is for small size, we don't scale up)
             total_cost = price * size
-            fee = total_cost * self.fee_rate
+            fee = calculate_fee(int(self.fee_rate * 10000), price, total_cost)
 
             return FillResult(
                 filled=True,

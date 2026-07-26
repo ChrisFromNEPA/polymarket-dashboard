@@ -66,9 +66,26 @@ class AutonomousAgent:
     # ── Main cycle ───────────────────────────────────────────
 
     async def run_cycle(self, max_markets: int = 100) -> AgentRunResult:
-        """Run one full cycle: scan → evaluate → risk → fill → record."""
+        """Run one full cycle: review → scan → evaluate → risk → fill → record.
+
+        Step order from guberm/polymarket-bot research:
+          1. Review existing positions — check exits, re-estimate
+          2. Scan new markets
+          3. Strategy evaluates
+          4. Risk validates + sizes
+          5. Fill engine executes
+          6. Record decisions
+        """
         now = datetime.now(timezone.utc).isoformat()
         result = AgentRunResult(time=now)
+
+        # 0. Position review — check exits on existing positions
+        try:
+            exit_count = await self._review_positions(result)
+            if exit_count > 0:
+                result.errors.append(f"Position review: {exit_count} positions exited (see decisions)")
+        except Exception as e:
+            result.errors.append(f"Position review failed: {e}")
 
         # 1. Scan markets
         try:
@@ -142,24 +159,22 @@ class AutonomousAgent:
                     )
 
                 if fill.filled:
-                    # 5. Update portfolio
-                    if actual_direction == "BUY":
-                        self.portfolio.add_position(
-                            token_id=actual_token,
-                            outcome=actual_outcome,
-                            shares=fill.filled_size,
-                            price=fill.avg_price,
-                            market_question=proposal.market_question,
-                            condition_id=proposal.condition_id,
+                    # 5. Update portfolio with fair estimate for exit tracking
+                    self.portfolio.add_position(
+                        token_id=actual_token,
+                        outcome=actual_outcome,
+                        shares=fill.filled_size,
+                        price=fill.avg_price,
+                        market_question=proposal.market_question,
+                        condition_id=proposal.condition_id,
+                    )
+                    # Store fair estimate on the position for edge-gone detection
+                    key = f"{actual_token}:{actual_outcome}"
+                    if key in self.portfolio.positions:
+                        self.portfolio.positions[key].fair_estimate_at_entry = (
+                            proposal.agent_probability
                         )
-                    else:
-                        self.portfolio.reduce_position(
-                            token_id=actual_token,
-                            outcome=actual_outcome,
-                            shares=fill.filled_size,
-                            price=fill.avg_price,
-                            reason=proposal.reasoning,
-                        )
+                        self.portfolio.positions[key].strategy_name = proposal.strategy_name
 
                     decision.filled = True
                     decision.fill_price = fill.avg_price
@@ -180,6 +195,66 @@ class AutonomousAgent:
         result.portfolio_value = self.portfolio.cash  # simplified
 
         return result
+
+    # ── Position review ──────────────────────────────────────
+
+    async def _review_positions(self, result: AgentRunResult) -> int:
+        """Check all open positions for exit conditions.
+
+        From guberm/polymarket-bot: checks stop-loss, take-profit, edge-gone.
+        Returns number of positions exited.
+        """
+        if not self.portfolio.positions:
+            return 0
+
+        # Fetch current prices
+        current_prices = {}
+        for key, pos in self.portfolio.positions.items():
+            try:
+                mid = await self.client.get_midpoint(pos.token_id)
+                current_prices[key] = mid
+            except Exception:
+                current_prices[key] = pos.avg_entry_price
+
+        # Generate exit signals
+        signals = self.portfolio.generate_exit_signals(current_prices)
+        if not signals:
+            return 0
+
+        exit_count = 0
+        for signal in signals:
+            pos = signal["position"]
+            price = signal["current_price"]
+            reason = signal["reason"]
+
+            try:
+                if pos.outcome == "Yes":
+                    fill = await self.fill_engine.market_sell(pos.token_id, pos.shares)
+                else:
+                    fill = await self.fill_engine.market_sell(pos.token_id, pos.shares)
+
+                if fill.filled:
+                    pnl, remaining = self.portfolio.reduce_position(
+                        pos.token_id, pos.outcome,
+                        fill.filled_size, fill.avg_price,
+                        reason=f"exit: {reason.value}",
+                    )
+                    exit_count += 1
+                    result.errors.append(
+                        f"EXIT {reason.value}: {pos.market_question[:50]}... "
+                        f"({pos.shares:.0f}sh @ ${price:.4f}, PnL=${pnl:+.2f})"
+                    )
+                else:
+                    result.errors.append(
+                        f"EXIT FAILED {reason.value}: {pos.market_question[:30]}... "
+                        f"fill rejected: {fill.reason}"
+                    )
+            except Exception as e:
+                result.errors.append(
+                    f"EXIT ERROR {reason.value}: {pos.market_question[:30]}... {e}"
+                )
+
+        return exit_count
 
     # ── Reporting ────────────────────────────────────────────
 
@@ -226,6 +301,8 @@ class AutonomousAgent:
                     "market_question": pos.market_question,
                     "condition_id": pos.condition_id,
                     "opened_at": pos.opened_at,
+                    "fair_estimate": pos.fair_estimate_at_entry,
+                    "strategy": pos.strategy_name,
                 }
                 for pos in self.portfolio.positions.values()
             ],

@@ -1,8 +1,8 @@
 {
-  "updated_at": "2026-07-26T04:46:07.318400+00:00",
+  "updated_at": "2026-07-26T05:03:09.563430+00:00",
   "decisions": [
     {
-      "time": "2026-07-26T04:45:51.712410+00:00",
+      "time": "2026-07-26T05:02:54.096024+00:00",
       "market": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -17,7 +17,7 @@
       "error": ""
     },
     {
-      "time": "2026-07-26T04:45:51.712410+00:00",
+      "time": "2026-07-26T05:02:54.096024+00:00",
       "market": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -32,7 +32,7 @@
       "error": ""
     },
     {
-      "time": "2026-07-26T04:45:51.712410+00:00",
+      "time": "2026-07-26T05:02:54.096024+00:00",
       "market": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -47,7 +47,7 @@
       "error": ""
     },
     {
-      "time": "2026-07-26T04:45:51.712410+00:00",
+      "time": "2026-07-26T05:02:54.096024+00:00",
       "market": "Will Kamala Harris win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
