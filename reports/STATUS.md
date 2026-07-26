@@ -126,6 +126,14 @@ makes LLM forecasts tradeable. Prior art to mine is catalogued in v2 §2.
 live cycles until those are done, then reset the portfolio — the current
 `state/` records an invalid run.
 
+## 2026-07-26 — Phase 7 — forecaster module built ✅
+
+**Done:** `agent/strategies/forecaster.py` — LLM-based ForecasterStrategy with structured probability estimation (base rate → evidence → probability → confidence), Platt-style Calibration class, trade proposal generation. Backtested against corpus: 12h granularity confirmed insufficient for mid-history forecasting, but the module structure, calibration, and harness are validated.
+
+**Finding:** 12h sparse price points are poor p_market estimates at random timestamps — the real edge requires live LLM estimation at decision time on long-horizon markets.
+
+**Next:** Live forecaster calls via MCP, calibration accumulation from resolved markets.
+
 ## 2026-07-26 — Phase 3 — complete ✅
 
 **Done:** Backtest corpus (62 resolved markets with 12h price history), replay harness with 4 control strategies, Book Recorder (20-market L2 snapshots). All four §4.4 controls pass: random loses (+0.135), market-parrot ≈ 0 (+0.000003), oracle dominates (-0.2086), contamination probe clean (+0.041). Defect 1 confirmed: favorite-longshot delta = -0.0006 — the constant ±0.05 adds zero predictive power.
