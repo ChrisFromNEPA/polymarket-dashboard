@@ -75,9 +75,28 @@
     }, 60000);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
+  // Belt and braces. A missed boot leaves a blank shell with no explanation,
+  // which is indistinguishable from "the agent published nothing" — so try
+  // several triggers and let the guard collapse them into one run.
+  let booted = false;
+  function bootOnce() {
+    if (booted) return;
+    booted = true;
+    boot().catch(e => {
+      const el = document.getElementById('view-verdict');
+      if (el) {
+        el.innerHTML = '<div class="banner banner-bad"><strong>Dashboard failed to start</strong>' +
+          '<div class="banner-sub">' + Data.esc(e.message || String(e)) + '</div></div>';
+      }
+      if (window.console) console.error(e);
+    });
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootOnce);
+  } else {
+    bootOnce();
+  }
+  window.addEventListener('load', bootOnce);
+  setTimeout(bootOnce, 1000);
 })();

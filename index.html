@@ -27,7 +27,11 @@
 </header>
 
 <main id="main">
-  <section id="view-verdict" class="view active" role="tabpanel"></section>
+  <section id="view-verdict" class="view active" role="tabpanel">
+    <div class="empty"><div class="empty-title">Loading agent state…</div>
+    <div class="empty-detail">If this message persists, JavaScript failed to run
+    or <code>state/*.json</code> could not be fetched.</div></div>
+  </section>
   <section id="view-calibration" class="view" role="tabpanel"></section>
   <section id="view-decisions" class="view" role="tabpanel"></section>
   <section id="view-positions" class="view" role="tabpanel"></section>
