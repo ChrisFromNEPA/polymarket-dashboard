@@ -1,14 +1,62 @@
-# Polymarket Autonomous Forecasting Agent — Build Plan v2
+# Polymarket Autonomous Trading Agent — Build Plan v3
 
-**Version:** 2.0 (supersedes v1.0 of 2026-07-26)
-**Status:** Phase 2.5 — remediation, then Phase 3
+**Version:** 3.0 (supersedes v2.0 of 2026-07-26)
+**Status:** Phase E — economic viability study (blocking)
 **Owner:** Hermes agent (Nous Research), always-on Ubuntu VM
 **Human:** ChrisFromNEPA
 **Last updated:** 2026-07-26
 
 ---
 
-## 0. What changed in v2, and why
+## 0. What changed in v3 — realignment with the actual goal
+
+📄 **Read [`docs/ECONOMICS.md`](docs/ECONOMICS.md) first. It is the most important
+document in this repo right now.**
+
+The goal is **an agent that makes money**. v1 and v2 built **an apparatus for
+detecting self-deception**. Those overlap, but they are not the same, and the gap
+has become the binding problem.
+
+Every defensive component works: honest fills, integrity checks, the
+execution-price invariant, control-gated backtests, a running book recorder.
+**No offensive component exists.** There is not one strategy with demonstrated
+edge, and the project has never asked whether a profitable configuration exists
+at all.
+
+Three corrections:
+
+**1. Brier was made the objective. It is a diagnostic.**
+Brier averages forecast quality across *all* markets; profit comes from
+*selectively* trading the few where edge exceeds cost. An agent can beat the
+market's Brier everywhere and never find a tradeable spread. The literature this
+plan cites says it outright — *high probabilistic calibration does not guarantee
+superior trading returns* — and we built the scoreboard around calibration anyway.
+
+> **Objective:** risk-adjusted profit after realistic costs
+> **Diagnostic:** Brier vs. market — tells us whether profit was skill
+> **Guardrail:** honest fills, integrity — stops us fooling ourselves
+
+**2. "Expect zero trades" was treated as success. It is a dead end.**
+Correct *behaviour* under the invariant, yes — but an agent that never trades
+makes no money. If every book prices worse than our own fair value, the chosen
+configuration cannot work and must change. Abstinence is not an outcome.
+
+**3. The binding constraint is not forecast quality — it is that
+`half_spread > edge` on every market examined.**
+That is an execution and market-selection problem. No amount of calibration work
+fixes it. Accordingly, calibration and ensembling move **down** the priority list,
+and viability analysis plus **maker execution** move to the top.
+
+**Venue reality (new, and material):** the offshore API this agent reads excludes
+US persons by ToS. Polymarket's QCEX acquisition created CFTC-regulated
+**Polymarket US**, which US traders can access — but that is a *different venue*,
+possibly with different books. Edge measured here may not be tradeable there.
+See ECONOMICS.md §6.
+
+**What does not change:** none of the epistemic guardrails loosen. A profit
+objective brings exactly the pressure they were built to resist.
+
+## 1. What changed in v2, and why
 
 v1 got the skeleton built fast — data layer, fill engine, portfolio, settlement,
 risk, MCP, dashboard. Then the first live cycle produced a result that was invalid
@@ -41,16 +89,31 @@ forecaster on long-horizon markets, executed passively.**
 
 ---
 
-## 1. Mission
+## 2. Mission
 
-Build a fully autonomous agent that trades Polymarket with **fake money**,
-long-term, producing a **falsifiable record** of whether it has genuine
-predictive edge.
+Build a fully autonomous agent that **makes money** on prediction markets —
+proven first with **fake money**, on a **falsifiable record**, at costs modelled
+honestly enough that the paper result would survive contact with real execution.
 
-Not "make money" — that framing produces an agent that rationalizes trades and a
-backtest that flatters itself. Only ~7.6% of Polymarket wallets finish profitable.
+Both halves are load-bearing. Drop the profit half and we build a very rigorous
+measurement of nothing — which is what v2 did. Drop the rigour half and we build
+a system that reports profit it never had, which is what ~92% of Polymarket
+wallets effectively experience.
 
-### The metric that matters
+### The objective
+
+**Risk-adjusted profit after realistic costs**, per `docs/ECONOMICS.md`:
+
+```
+net_edge = |p_agent − p_market| − half_spread − fees − slippage
+return   = (net_edge × position_size × trade_count) / capital_at_risk
+```
+
+Minimum viable economics: **≥20 qualifying trades/month**, **≥2¢ net edge per
+share after costs**, **>8% annualised**. Below those, there is no compounding, no
+sample, and no reason to continue.
+
+### The diagnostic
 
 **Brier score of the agent vs. the market price at decision time.**
 
@@ -59,9 +122,10 @@ brier_agent  = mean((p_agent  - y)^2)
 brier_market = mean((p_market - y)^2)
 ```
 
-If `brier_agent >= brier_market`, there is no predictive edge, whatever P&L says.
-Log it for every market evaluated, **including declined ones** — free calibration
-data.
+If `brier_agent >= brier_market`, any profit was luck, not skill — so it will not
+persist. Brier is how we tell those apart. It is **not** the thing we are trying
+to maximise. Log it for every market evaluated, **including declined ones** — free
+calibration data.
 
 ### Concrete targets from the literature
 
@@ -78,10 +142,25 @@ An ensemble of 12 LLMs performed indistinguishably from a crowd of 925 humans.
 **Our bar:** `brier_agent < brier_market` on the markets actually traded. Absolute
 Brier isn't comparable across question sets — only the paired comparison counts.
 
-⚠️ **Critical caveat from the same literature:** *high probabilistic calibration
-does not guarantee superior trading returns.* Beating the market's Brier is
-necessary but not sufficient — costs can still eat the edge. Track both, and never
-report one without the other.
+⚠️ **The caveat that reshaped v3:** *high probabilistic calibration does not
+guarantee superior trading returns.* We quoted this in v2 and then made
+calibration the headline anyway. Beating the market's Brier is **necessary but
+not sufficient** — a perfectly calibrated agent still earns nothing if no market
+prices within its edge. Never report either number without the other.
+
+### Kill criteria
+
+Stated now so they can be honoured later, when it is inconvenient
+(`docs/ECONOMICS.md` §7):
+
+1. Phase E finds **no segment** where achievable edge exceeds required edge, as
+   taker *or* maker.
+2. After 3 months, qualifying trades/month < 5 — untestable in any useful horizon.
+3. Honest maker-fill modelling erases the maker advantage.
+4. `brier_agent ≥ brier_market` after 200 resolutions.
+
+**A clean "this does not work, here is the evidence" is a successful outcome** —
+and far more valuable than a system that trades indefinitely without edge.
 
 ---
 
@@ -258,7 +337,53 @@ downstream is fiction.
 Each phase has acceptance criteria. Not done until tests pass on the VM **and** a
 report is filed per §9.
 
-### Phase 2.5 — Remediation (BLOCKING, do first)
+### Phase E — Economic viability study (BLOCKING — do this before anything else)
+
+📄 Full spec: [`docs/ECONOMICS.md`](docs/ECONOMICS.md) §4.
+
+Answer one question with numbers: **is there any configuration in which this makes
+money?** It is answerable in days from data we already collect, and every other
+phase is wasted effort if the answer is no.
+
+- **E1 — Map the opportunity set.** Across the *full* market universe (not just
+  `trending`), measure `half_spread` at realistic size ($50 / $200 / $1000 —
+  walking the book, not the midpoint), volume, liquidity, days to resolution,
+  category, `negRisk`. Publish the joint distribution by segment. We currently
+  have one unvalidated data point ("99.8% spreads") driving every design decision.
+- **E2 — Edge budget.** Per segment: `required_edge = half_spread + fees +
+  slippage`. Segments needing more edge than any plausible forecaster provides
+  are dead permanently — cross them off.
+- **E3 — Achievable edge.** From the Phase 3 corpus, measure `|p_market − outcome|`
+  by segment and horizon, and how much was knowable in advance rather than in
+  hindsight.
+- **E4 — Overlay.** The viable band is where achievable edge exceeds required
+  edge. Deliver the §4 table plus a **go/no-go recommendation with numbers**.
+- **E5 — Venue check.** Confirm which venue's books we are recording, whether
+  Polymarket US (QCX) exposes an API, and whether its books differ. See
+  ECONOMICS.md §6.
+
+**Acceptance:** the E4 table is published, and either a viable band is identified
+with an estimated trades/month, or a kill criterion is invoked. Anything else is
+not an answer.
+
+### Phase M — Maker execution (likely the actual unlock)
+
+If Phase E shows required edge exceeds achievable edge as a taker, we are paying
+the spread when we should be earning it. Passive execution has been the stated
+default since v2 §5.7 while the fill engine has only ever supported market orders.
+
+- Limit-order support in the fill engine.
+- **Fills only when later trade prints cross the level** — never on touch.
+- **Adverse-selection haircut**, measured from recorded book data: price drift in
+  the N minutes after a fill at that level. Resting orders fill preferentially
+  when you are wrong.
+- **Queue position** — being at a price is not being first in line.
+
+**Acceptance:** all three of the above implemented. Until then, do not report
+maker P&L at all — a simulator that fills every resting order on touch will
+manufacture spectacular fake returns.
+
+### Phase 2.5 — Remediation (do after Phase E)
 Fix Defects 6, 3, 5, 4 in that order. Evaluate the §2 prior art and report a
 build-vs-adopt recommendation for the API client.
 
@@ -296,7 +421,19 @@ Therefore testing splits into three tracks:
 Brier delta of exactly ~0. Plus a clean contamination probe with proven
 date-filtered retrieval. Nothing downstream is trustworthy until these pass.
 
-### Phase 4 — Longshot, refit from data (validator, not profit centre)
+### Phase 4 — Replace the longshot strategy (do not try to fix it)
+
+⚠️ **v3 change:** this strategy is structurally incapable of edge, not
+mis-tuned. `strategies/longshot.py:90` sets `p_agent = p_market − BIAS_STRENGTH`,
+so `edge` is algebraically the constant `BIAS_STRENGTH` and the gate can never
+fail. `p_agent` is a deterministic function of `p_market`, carrying **zero
+independent information** — which also makes the Brier comparison meaningless by
+construction.
+
+No parameter change fixes that. Either fit a real bias curve from resolved
+markets (below), or retire it and keep it only as a pipeline exercise.
+
+**Original scope, if refitting:**
 - Fit the bias curve on resolved markets: bucket by entry price, realized
   frequency vs. implied, with CIs and per-bucket sample size.
 - Gate on `edge_net > hurdle` (§5.6).
@@ -378,6 +515,11 @@ Hermes's Phase 0 defaults are **accepted** with one change:
 - ❌ Do not let the LLM enforce its own risk limits.
 - ❌ Do not let the forecaster see `p_market` before producing `p_raw`.
 - ❌ Do not report P&L without the paired Brier comparison.
+- ❌ Do not report maker/passive P&L before adverse selection is modelled.
+- ❌ Do not treat "zero trades" as a successful outcome. It is a signal that the
+  configuration is wrong, not evidence of discipline.
+- ❌ Do not let the profit objective loosen a single guardrail. The pressure it
+  creates is exactly what the guardrails exist to resist.
 - ❌ Do not add a strategy before the fill engine passes **all six** adversarial
   tests, passive order included.
 

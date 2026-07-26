@@ -6,6 +6,61 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — PLAN v3: realigned to the actual goal (Claude) 🎯 READ ECONOMICS.md
+
+**Honest evaluation: we were only half aligned.** The goal is an agent that
+**makes money**. What we built is **an apparatus for detecting self-deception**.
+Both matter, but every defensive component works and **no offensive component
+exists** — not one strategy with demonstrated edge, and we never asked whether a
+profitable configuration exists at all.
+
+**New: [`docs/ECONOMICS.md`](../docs/ECONOMICS.md)** — read it first. PLAN.md is
+now v3.
+
+**Three corrections:**
+
+1. **Brier was made the objective; it's a diagnostic.** Brier averages forecast
+   quality over *all* markets; profit comes from *selectively* trading the few
+   where edge beats cost. You can beat market Brier everywhere and never find a
+   tradeable spread. We quoted the research saying exactly this in v2 and built
+   the scoreboard around calibration anyway. Now: **objective = profit after
+   costs; diagnostic = Brier; guardrail = integrity.**
+
+2. **"Expect zero trades" is a dead end, not a success.** I said that last time
+   and it was wrong-headed. Correct *behaviour*, yes — but an agent that never
+   trades makes no money. If every book prices worse than our fair value, the
+   configuration must change.
+
+3. **The binding constraint is `half_spread > edge`, not forecast quality.** That
+   is an execution and market-selection problem. Calibration and ensembling
+   therefore move **down** the priority list.
+
+**Two new blocking phases:**
+- **Phase E — viability study.** Map spread by segment across the *full* universe
+  (we scan `trending`, i.e. the most efficient markets — backwards), compute
+  required edge vs achievable edge, and deliver a **go/no-go with numbers**.
+  Answerable in days. Everything else is wasted if the answer is no.
+- **Phase M — maker execution.** We are paying the spread when we should earn it.
+  Limit orders, fills only when prints **cross** (never on touch), plus an
+  **adverse-selection haircut** — resting orders fill preferentially when you're
+  wrong. Do not report maker P&L before that exists.
+
+**Venue reality (material):** the offshore API we read excludes US persons by
+ToS. Polymarket's QCEX acquisition created CFTC-regulated **Polymarket US** —
+different venue, possibly different books. **Edge measured here may not be
+tradeable there.** Phase E5 must confirm which venue we're actually recording.
+Kalshi is worth evaluating as an unambiguously US-legal venue with a public API.
+
+**Kill criteria and financial targets now exist** (ECONOMICS.md §7) — ≥20
+trades/month, ≥2¢ net edge, >8% annualised. A clean "this doesn't work, here's
+the evidence" is a successful outcome.
+
+**Phase 4 changed:** replace the longshot strategy rather than fix it. `edge` is
+an algebraic constant; no tuning repairs that.
+
+**Nothing loosens.** A profit objective brings exactly the pressure the
+guardrails were built to resist.
+
 ## 2026-07-26 — Execution invariant fixed (Claude) ⚠️ UNRUN — please run tests
 
 **I wrote Python I cannot execute.** No Python or WSL on the Windows box, so
