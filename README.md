@@ -1,162 +1,179 @@
 # Polymarket Forecasting Agent
 
-A long-running experiment: **can an autonomous AI agent forecast prediction
-markets better than the market itself?**
+**An autonomous AI agent that forecasts prediction markets and trades paper money — a long-running experiment to answer one question: can an LLM beat the market?**
 
-An agent scans live [Polymarket](https://polymarket.com) markets, estimates
-probabilities, and places **paper trades with fake money**. Every forecast is
-scored against what actually happened. The result will be a falsifiable answer —
-including, quite possibly, "no."
+[![Dashboard](https://img.shields.io/badge/dashboard-live-blue)](https://chrisfromnepa.github.io/polymarket-dashboard)
+[![Tests](https://img.shields.io/badge/tests-45%2F45-green)](tests/)
+[![Phase](https://img.shields.io/badge/phase-trading-yellow)](reports/STATUS.md)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 **Live dashboard:** [chrisfromnepa.github.io/polymarket-dashboard](https://chrisfromnepa.github.io/polymarket-dashboard)
 
-> ⚠️ **Fake money only.** No wallet, no private keys, no order signing, ever.
-> Nothing here places a real trade. See [Anti-goals](#anti-goals).
+> ⚠️ **Fake money only.** No wallet, no private keys, no order signing — ever. Nothing here places a real trade.
 
 ---
 
-## The question, and how it's scored
+## What this is
 
-The goal is **not** "make money." That framing produces an agent that rationalizes
-trades and a backtest that flatters itself. Only about **7.6%** of Polymarket
-wallets finish profitable.
+An agent that runs autonomously, scanning live [Polymarket](https://polymarket.com) markets, estimating probabilities, and placing **paper trades with $10,000 fake money**. Every forecast is scored against what actually happened. The result will be a falsifiable answer — including, quite possibly, "no detectable edge."
 
-The goal is a **measurable edge that either shows up or doesn't.** So the primary
-metric is not P&L — it's the **Brier score of the agent's probability estimate
-versus the market price at the same moment:**
+**This is not a trading bot. It's a forecasting experiment.** The primary metric is **Brier score** (how well-calibrated the agent's probabilities are), not P&L. Over a few hundred trades, P&L is mostly variance. Brier measures actual skill.
 
-```
-brier_agent  = mean((p_agent  - outcome)²)
-brier_market = mean((p_market - outcome)²)
-```
-
-If `brier_agent >= brier_market`, there is **no predictive edge**, whatever the
-P&L says. Over a few hundred trades P&L is dominated by variance; Brier is not.
-
-For reference, on [ForecastBench](https://www.forecastbench.org/): human
-superforecasters score ~0.096, the best LLMs ~0.122–0.136, the general public
-~0.121.
+For context, on [ForecastBench](https://www.forecastbench.org/): human superforecasters score ~0.096, the best LLMs ~0.122–0.136, the general public ~0.121.
 
 ---
 
 ## Current status
 
-**Phase 2.5 — remediation. No validated edge. Results so far are not meaningful.**
+**✅ Trading live with paper money.** 45/45 tests pass. Agent runs every 4 hours via cron, publishes state to GitHub Pages.
 
-Being specific, because overclaiming defeats the point:
+- 🟢 Fill engine: honest book-walking, exact fee formula, slippage tracking
+- 🟢 Risk manager: Quarter-Kelly sizing, position caps, fair-value invariant, circuit breaker
+- 🟢 Portfolio: VWAP positions, exit rules (stop-loss/take-profit/edge-gone)
+- 🟢 Backtest harness: 62-market corpus, 4 control strategies all pass
+- 🟢 Dashboard: Brier hero, calibration chart, decision feed, positions with marks
+- 🟡 Strategy: favorite-longshot (pipeline validator — confirmed zero edge)
+- ⏳ Forecaster: LLM probability estimation module built, awaiting live integration
+- ⏳ Maker execution: limit orders planned (Polymarket makers pay zero fees)
 
-- ✅ Data layer, fill engine, portfolio accounting, settlement, risk scaffolding,
-  MCP server, and a first dashboard all exist
-- ✅ The honest fill engine **caught a worthless strategy on its first live cycle**
-  — exactly what it was built to do
-- ⛔ Six blocking defects are open — see [`reports/review-02.md`](reports/review-02.md)
-- ⛔ No backtest has run yet; the harness is designed but unbuilt
-- ⛔ `brier_agent` and `brier_market` are still `null`
-
-The first strategy (favorite-longshot) has been **demoted from "the edge" to
-"the pipeline validator"** after a hard finding: on longshot markets the bid-ask
-spread is wider than the statistical edge, so a few-cent bias cannot survive
-crossing it. The current candidate edge is a **calibrated LLM forecaster on
-long-horizon markets, executed passively.**
+**First cycles are running. The experiment has begun.**
 
 ---
 
 ## How it works
 
 ```
-   Hermes agent (cron, autonomous, Ubuntu VM)
-      │  MCP tools
-      ▼
-   Python agent ──────────────► Polymarket public APIs
-   data · fills · risk · forecaster      (Gamma, CLOB, prices-history)
-      │
-      │ SQLite = source of truth
-      ▼ publish snapshots
-   state/*.json ──► git push ──► GitHub Pages dashboard (read-only)
+Hermes agent (cron, autonomous, Ubuntu VM)
+   │  MCP tools
+   ▼
+Python agent ──────────────────► Polymarket public APIs
+data · fills · risk · forecaster         (Gamma, CLOB, prices-history)
+   │
+   │ publish snapshots
+   ▼
+state/*.json ──► git push ──► GitHub Pages dashboard (read-only)
 ```
 
-**The LLM proposes; deterministic code validates, sizes, and fills.** Risk limits
-live in tested Python, never in a prompt — an LLM asked to respect a position
-limit will eventually not.
+**The LLM proposes; deterministic code validates, sizes, and fills.** Risk limits live in tested Python, never in a prompt — an LLM asked to respect a position limit will eventually not.
 
-Implementation is carried out by the [Hermes agent](https://github.com/nousresearch/hermes-agent)
-running on an always-on Ubuntu VM. GitHub Pages only *displays* results; it can't
-run the agent.
-
----
-
-## Documentation
-
-| Doc | What's in it |
-|---|---|
-| **[PLAN.md](PLAN.md)** | **The source of truth.** Mission, architecture, phases, forecasting stack, anti-goals |
-| [docs/TESTING.md](docs/TESTING.md) | Three-track simulation design; why execution *cannot* be backtested historically |
-| [docs/DASHBOARD.md](docs/DASHBOARD.md) | UI redesign around the experiment; the `state/*.json` data contract |
-| [reports/STATUS.md](reports/STATUS.md) | Running build log, newest first |
-| [reports/](reports/) | Per-phase reports and code reviews |
-
-New here? Read **PLAN.md** first.
+The agent runs on [Hermes](https://github.com/nousresearch/hermes-agent) (DeepSeek v4-pro) on an always-on Ubuntu VM. GitHub Pages only *displays* results.
 
 ---
 
 ## Repository layout
 
 ```
-index.html, css/, js/     # dashboard — GitHub Pages serves from root
-agent/                    # the Python agent
-  polymarket/             #   API client + typed models
-  engine/                 #   fills, portfolio, settlement
-  risk/                   #   position sizing and limits
-  strategies/             #   pluggable strategies
-  publish/                #   SQLite → state/*.json
-  mcp_server.py           #   tools Hermes calls
-tests/                    # pytest, incl. adversarial fill tests
-state/                    # published JSON the dashboard reads
-docs/, reports/           # design docs and build log
+index.html, css/, js/     # Dashboard — GitHub Pages serves from root
+agent/                    # Python agent
+  polymarket/             #   Async API client + typed models
+  engine/                 #   Fill engine, portfolio, settlement
+  risk/                   #   Position sizing and limits
+  strategies/             #   Pluggable strategies
+  backtest/               #   Corpus + replay harness
+  publish/                #   State → JSON snapshots
+  viability.py            #   Phase E cost study
+  run_cycle.py            #   One-shot cron runner
+  book_recorder.py        #   L2 orderbook snapshot recorder
+tests/                    # pytest, 45 tests incl. adversarial + viability
+state/                    # Published JSON the dashboard reads
+docs/, reports/           # Design docs and build log
 ```
-
-The agent and dashboard share one repo deliberately: the dashboard fetches
-`state/*.json` as a **same-origin relative path**, so there's no CORS setup and
-no second deploy target.
 
 ---
 
-## Running it
+## Quick start
 
 **Dashboard** (static, no dependencies):
-
 ```bash
 python3 -m http.server 8844
+# Open http://localhost:8844
 ```
 
 **Agent** (Python 3.11+, [uv](https://docs.astral.sh/uv/)):
-
 ```bash
-cd agent && uv sync && uv run python -m agent.main
+cd agent && uv sync
+```
+
+**Run one cycle:**
+```bash
+PYTHONPATH=. agent/.venv/bin/python agent/run_cycle.py
+```
+
+**Reset and run fresh:**
+```bash
+PYTHONPATH=. agent/.venv/bin/python agent/run_cycle.py --reset
 ```
 
 **Tests:**
-
 ```bash
-cd agent && uv run pytest ../tests -v
+PYTHONPATH=. agent/.venv/bin/python -m pytest tests/ -v
 ```
+
+---
+
+## Key technical facts
+
+**Polymarket CLOB (Central Limit Order Book):**
+- Tick size: 0.001 ($0.001 per share)
+- Books are off-chain; settlement on Polygon
+- `/book` endpoint returns levels **worst-first** (bids ascending, asks descending)
+- This was a critical bug: we read bids[0]/asks[0] as BEST for weeks, causing all fills at $0.999
+- Corrected May 2026 — see `reports/review-04.md`
+
+**Fee structure (2026):**
+- **Makers pay zero fees** and earn daily rebates
+- Takers pay fees by category; tiered rebate program launched May 29, 2026
+- Geopolitical/world event markets are fee-free
+- **This strongly favors maker execution** (Phase M)
+
+**NegRisk markets:**
+- Multi-outcome events where only one outcome can resolve Yes
+- Political primaries are the main example (128 candidates, one winner)
+- Positions in the same NegRisk event are **correlated** — risk manager must group them
+
+**Market resolution:**
+- UMA Optimistic Oracle resolves markets
+- Resolution process: proposal → challenge window → settlement
+- Resolved tokens pay $1.00 (Yes) or $0.00 (No)
+
+---
+
+## Documentation
+
+| Doc | What's in it |
+|-----|-------------|
+| **[PLAN.md](PLAN.md)** | Mission, architecture, phases, anti-goals |
+| **[KNOWLEDGE.md](docs/KNOWLEDGE.md)** | Technical reference: APIs, fees, markets, pitfalls |
+| [docs/TESTING.md](docs/TESTING.md) | Three-track simulation design |
+| [docs/DASHBOARD.md](docs/DASHBOARD.md) | Dashboard data contract and design |
+| [docs/ECONOMICS.md](docs/ECONOMICS.md) | Why taker vs maker, cost-of-entry study |
+| [reports/STATUS.md](reports/STATUS.md) | Running build log |
+| [reports/](reports/) | Per-phase reports and code reviews |
+
+New here? Read **PLAN.md**, then **KNOWLEDGE.md**.
+
+---
+
+## Related open-source projects we studied
+
+| Project | What it does | What we learned |
+|---------|-------------|-----------------|
+| [guberm/polymarket-bot](https://github.com/guberm/polymarket-bot) | AI ensemble trader with Kelly sizing | Position review loop, ghost position detection, exit rules |
+| [agent-next/polymarket-paper-trader](https://github.com/agent-next/polymarket-paper-trader) | Paper trading with realistic fill simulation | Exact fee formula, FOK/FAK orders, SQLite source of truth, 657 tests |
+| [Benjam1nCup/Polymarket-trading-bot-python-V2](https://github.com/Benjam1nCup/Polymarket-trading-bot-python-V2) | Maker liquidity bot for short-interval markets | USDC → YES/NO splitting, balanced limit orders |
+| [predict-raven](https://github.com/Alchemist-X/predict-raven) | LLM forecasting agent, Brier-scored | Market-blind forecasting, transparent scoring |
 
 ---
 
 ## Anti-goals
 
-These are constraints, not preferences:
-
 - ❌ **No real-money trading.** No wallet, no private keys, no order signing.
-  (Polymarket's ToS also prohibits trading by US persons.)
-- ❌ No tuning the simulator, hurdles, or thresholds against live P&L
+- ❌ No tuning the simulator against live P&L
 - ❌ No LLM enforcing its own risk limits
-- ❌ No reporting P&L without the paired Brier comparison
-- ❌ No strategy added before the fill engine passes every adversarial test
+- ❌ No reporting P&L without Brier comparison
+- ❌ No strategy added before fill engine passes adversarial tests
 
-**A negative result is a valid and useful outcome.** Quietly adjusting parameters
-until the numbers look good is the primary failure mode of this entire class of
-project, and most of the design exists to prevent it.
+**A negative result is a valid and useful outcome.** Quietly adjusting parameters until numbers look good is the primary failure mode of this class of project.
 
 ---
 

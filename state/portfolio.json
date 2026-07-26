@@ -16,7 +16,7 @@
       "cost_basis": 491.58563,
       "market_question": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
       "condition_id": "0xe6bcc2f1dd025ce5e1833190f7c60a71171c94f805df55b9ab0ded695ec93565",
-      "opened_at": "2026-07-26T15:10:06.514657+00:00",
+      "opened_at": "2026-07-26T15:14:37.590668+00:00",
       "fair_estimate": 0.08750000000000001,
       "strategy": "favorite-longshot",
       "overpaid": true
@@ -31,7 +31,7 @@
       "cost_basis": 490.633,
       "market_question": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
       "condition_id": "0x4c325469d9b516ef4e6b8f73a81a12607dec075e3c2fd454f91765aaeafc4760",
-      "opened_at": "2026-07-26T15:10:06.806238+00:00",
+      "opened_at": "2026-07-26T15:14:37.877240+00:00",
       "fair_estimate": 0.01,
       "strategy": "favorite-longshot",
       "overpaid": true
@@ -46,7 +46,7 @@
       "cost_basis": 490.2,
       "market_question": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
       "condition_id": "0xd65891729ce093cc12236856837eba1a0872fc7998fd4294c21346f7db68079c",
-      "opened_at": "2026-07-26T15:10:07.088329+00:00",
+      "opened_at": "2026-07-26T15:14:38.164654+00:00",
       "fair_estimate": 0.01,
       "strategy": "favorite-longshot",
       "overpaid": true
@@ -61,7 +61,7 @@
       "cost_basis": 490.65686,
       "market_question": "Will Kamala Harris win the 2028 Democratic presidential nomination?",
       "condition_id": "0x909659c9436228e2be56d5582ba6188166f2f8bf3c596335512c8f2e380d01ec",
-      "opened_at": "2026-07-26T15:10:07.370701+00:00",
+      "opened_at": "2026-07-26T15:14:38.440185+00:00",
       "fair_estimate": 0.033,
       "strategy": "favorite-longshot",
       "overpaid": true
@@ -69,7 +69,7 @@
   ],
   "recent_trades": [
     {
-      "time": "2026-07-26T15:10:06.514665+00:00",
+      "time": "2026-07-26T15:14:37.590676+00:00",
       "action": "BUY",
       "outcome": "No",
       "price": 0.8654676584507042,
@@ -78,7 +78,7 @@
       "market_question": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?"
     },
     {
-      "time": "2026-07-26T15:10:06.806248+00:00",
+      "time": "2026-07-26T15:14:37.877249+00:00",
       "action": "BUY",
       "outcome": "No",
       "price": 0.949,
@@ -87,7 +87,7 @@
       "market_question": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?"
     },
     {
-      "time": "2026-07-26T15:10:07.088337+00:00",
+      "time": "2026-07-26T15:14:38.164662+00:00",
       "action": "BUY",
       "outcome": "No",
       "price": 0.95,
@@ -96,7 +96,7 @@
       "market_question": "Will Josh Shapiro win the 2028 Democratic presidential nomination?"
     },
     {
-      "time": "2026-07-26T15:10:07.370710+00:00",
+      "time": "2026-07-26T15:14:38.440194+00:00",
       "action": "BUY",
       "outcome": "No",
       "price": 0.9188330711610487,
@@ -105,5 +105,5 @@
       "market_question": "Will Kamala Harris win the 2028 Democratic presidential nomination?"
     }
   ],
-  "updated_at": "2026-07-26T15:10:08.520588+00:00"
+  "updated_at": "2026-07-26T15:14:39.576948+00:00"
 }
