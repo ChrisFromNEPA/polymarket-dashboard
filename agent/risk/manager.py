@@ -122,7 +122,10 @@ class RiskManager:
         sized_shares = (current_equity * sized_fraction) / entry_price if entry_price > 0 else 0
 
         # ── Position size cap ──
-        max_shares = (current_equity * self.MAX_POSITION_PCT) / entry_price
+        # Use 98% of the nominal cap so the real fill (at ask, not mid)
+        # doesn't breach the limit by a single tick on tight books.
+        effective_pct = self.MAX_POSITION_PCT * 0.98
+        max_shares = (current_equity * effective_pct) / entry_price
         if sized_shares > max_shares:
             warnings.append(
                 f"Position capped at {self.MAX_POSITION_PCT:.0%} of bankroll "
