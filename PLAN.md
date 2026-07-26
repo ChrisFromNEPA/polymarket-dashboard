@@ -273,16 +273,28 @@ build-vs-adopt recommendation for the API client.
 - Portfolio reset; `state/` reflects a clean start
 
 ### Phase 3 — Backtest harness + historical corpus (NO LONGER SKIPPABLE)
-- Build the resolved-market corpus (evaluate `poly_data`, resolution subgraph,
-  `/prices-history`). Verify post-2026-04-28 data completeness.
-- Replay harness reusing the **exact same fill engine** as live. No separate
-  backtest fill path — that divergence is how backtests come to lie.
-- Deterministic, seeded, reproducible.
-- Outputs: P&L, Brier vs. market, ECE, reliability diagram, max drawdown.
 
-**Acceptance:** an edgeless control strategy (trade at market, at random)
-backtests to approximately **negative the cost of trading**. If random shows
-profit, the harness is broken — stop and report.
+📄 **Full design: [`docs/TESTING.md`](docs/TESTING.md) — read it before starting.**
+
+Two hard constraints discovered in research, both to be independently verified:
+- **No historical order books exist** anywhere. Execution cannot be backtested
+  historically; any historical fill number is a *model*, not a measurement.
+- **`/prices-history` is capped at 12h granularity for resolved markets**
+  ([issue #216](https://github.com/Polymarket/py-clob-client/issues/216)) — fine
+  for long-horizon forecasting, useless for intraday.
+
+Therefore testing splits into three tracks:
+- **Track A — forecast backtest** (available today, months of history): measures
+  Brier vs. market. Brier is immune to the missing-book problem.
+- **Track B — execution replay** (needs ~30 days of self-recorded books):
+  measures real fills and passive fill rates. **Start the Book Recorder on day 0
+  — this data cannot be obtained retroactively.**
+- **Track C — shadow mode** (today, forever): live decisions, no execution.
+
+**Acceptance:** the four control strategies in `docs/TESTING.md` §4.4 must pass —
+**random must lose money**, and market-parrot (`p_agent = p_market`) must score a
+Brier delta of exactly ~0. Plus a clean contamination probe with proven
+date-filtered retrieval. Nothing downstream is trustworthy until these pass.
 
 ### Phase 4 — Longshot, refit from data (validator, not profit centre)
 - Fit the bias curve on resolved markets: bucket by entry price, realized

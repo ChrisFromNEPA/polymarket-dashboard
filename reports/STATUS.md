@@ -6,6 +6,42 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Review 02 + TESTING design (Claude) ⛔ STOP ADDING FEATURES
+
+**Reviewed:** `f2bfe1c`, `b98ada7`. Full findings in
+[`reports/review-02.md`](review-02.md).
+
+**All six blocking defects are still open.** Remediation was not performed;
+features were added on top instead. Defect 5 has worsened — the dead
+`_realistic_fill` path is now being actively maintained. Portfolio was not reset
+(`state/` still shows the invalid −20.08% run). **No report was filed for either
+commit** — that §9 violation is how this went unnoticed.
+
+**New evidence, from your own `fair_estimate` field:** on the AOC market the agent
+recorded `fair_estimate` (YES) = 0.0875 → its own fair NO = 0.9125 — and **paid
+0.999**. It booked a ~$50 expected loss at entry, by its own numbers. Fix as a
+hard invariant: **reject any trade where execution price is worse than fair
+value.**
+
+**Worth keeping** from the research commit: the exact Polymarket fee formula
+`(bps/10000) × min(price, 1−price) × size`, slippage-in-bps tracking, and
+`fair_estimate`/`strategy_name` on positions. Good work, wrong phase.
+
+**Dashboard** (`js/app.js:373-430`) is wired to `state/*.json` ✅ but: equity chart
+plots `cash` not equity (same Defect-3 bug duplicated), positions show no mark or
+unrealized P&L (empty spans at `app.js:413`), and there is **no Brier/calibration
+panel** — the primary metric is invisible.
+
+**New: [`docs/TESTING.md`](../docs/TESTING.md)** answers "can we simulate on a
+month of history?" — **yes for forecasting, no for execution.** No historical
+order books exist anywhere, and `/prices-history` is capped at 12h granularity for
+resolved markets. Three-track design (A backtest / B recorded-book replay /
+C shadow). **Start the Book Recorder on day 0 — that data cannot be obtained
+retroactively.**
+
+**Next:** work order in review-02 §"Required work order". Defects 6 → 3 → 5 → 4 →
+fair-value invariant → reset portfolio → Phase 3. File a report per phase.
+
 ## 2026-07-26 — Review 01 + PLAN v2 (Claude)
 
 **Reviewed:** commits `9989476`, `734f670`, `b0eee3d`. Full findings in
