@@ -6,6 +6,29 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Docs accuracy pass (Claude)
+
+**README rewritten.** The old one pitched *"test your strategies risk-free before
+committing real capital"* and linked to "real-money trading" scripts — both now
+explicit anti-goals. It also promoted the arbitrage scanner (false-positive
+generators, PLAN §3.1–3.3) as a feature.
+
+New README leads with the actual question (can the agent out-forecast the
+market?), states Brier-not-P&L as the metric with ForecastBench reference points,
+and carries an **honest status section** — six defects open, no backtest run,
+`brier_*` still null. Overclaiming in the front door would undercut the whole
+design.
+
+**GitHub About updated** — description, homepage URL (was blank), and topics:
+`polymarket`, `prediction-markets`, `forecasting`, `ai-agent`, `paper-trading`,
+`brier-score`, `calibration`, `mcp`.
+
+**index.html:** title, meta description, OG tags, `<h1>`, and badge updated for
+accuracy only. **Deliberately did not touch the tabs, the header balance element,
+or any JS-bound nodes** — that's your D1 work in
+[`docs/DASHBOARD.md`](../docs/DASHBOARD.md). The header balance still renders the
+manual localStorage portfolio; D1 removes it.
+
 ## 2026-07-26 — Dashboard redesign plan (Claude)
 
 **New: [`docs/DASHBOARD.md`](../docs/DASHBOARD.md)** — rebuild the UI as an
