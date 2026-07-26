@@ -129,7 +129,22 @@ Created → Active → (Paused) → Resolved
 - **Active markets:** 1-hour minimum fidelity (`fidelity=60`)
 - **Closed markets:** 12-hour minimum fidelity (`fidelity=720`)
 - `fidelity=60/120/360` returns **0 points** for closed markets
-- This was confirmed on 62 resolved markets
+
+### Enriched corpus (2026-07-26)
+- **131 resolved markets** across 4 categories
+- 74 sports, 8 crypto, 7 economics, 42 other
+- 56 markets resolved within 30 days (14 within 7 days)
+- Original corpus: 62 markets, all politics, 0 recent
+- Bulk data source: Gamma API `/markets?closed=true&order=volume` with offset pagination (0-2000)
+
+### External historical data sources
+| Source | Format | Coverage |
+|--------|--------|----------|
+| [SII-WANGZJ/Polymarket_data](https://github.com/SII-WANGZJ/Polymarket_data) | HuggingFace dataset | All markets before 2026 |
+| [predmktdata.com](https://predmktdata.com) | Parquet | Tick-level, full history |
+| [polyreplay.dev](https://polyreplay.dev) | REST API | Historical orderbook snapshots |
+| [telonex.io](https://telonex.io) | Python SDK | Tick trades, orderbooks |
+| [pmdata.dev](https://pmdata.dev) | REST API | Tick-by-tick, Up/Down markets |
 
 ### Implication for backtesting
 - Closed-market price points are too sparse for strategy evaluation
