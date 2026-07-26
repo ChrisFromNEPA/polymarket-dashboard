@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polymarket Dashboard — Paper Trading</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header id="header">
+  <div class="header-left">
+    <h1>📊 Polymarket Dashboard</h1>
+    <span class="badge">Paper Trading</span>
+  </div>
+  <nav id="tabs">
+    <button class="tab active" data-tab="markets">Markets</button>
+    <button class="tab" data-tab="portfolio">Portfolio</button>
+    <button class="tab" data-tab="scanner">Arbitrage Scanner</button>
+    <button class="tab" data-tab="news">News Edge</button>
+  </nav>
+  <div class="header-right">
+    <div class="balance" id="header-balance">$10,000.00</div>
+    <div class="pnl" id="header-pnl">—</div>
+  </div>
+</header>
+
+<main>
+  <!-- MARKETS TAB -->
+  <section id="tab-markets" class="tab-content active">
+    <div class="search-bar">
+      <input type="text" id="market-search" placeholder="Search markets... (e.g., 'bitcoin', 'iran', 'election')" autofocus>
+      <button id="search-btn">🔍 Search</button>
+      <button id="trending-btn">📈 Trending</button>
+    </div>
+    <div id="markets-container">
+      <div class="loading">Loading trending markets...</div>
+    </div>
+  </section>
+
+  <!-- PORTFOLIO TAB -->
+  <section id="tab-portfolio" class="tab-content">
+    <div class="portfolio-summary">
+      <div class="stat-card">
+        <div class="stat-label">Cash Balance</div>
+        <div class="stat-value" id="port-cash">$10,000.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Positions Value</div>
+        <div class="stat-value" id="port-positions">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total P&L</div>
+        <div class="stat-value" id="port-pnl">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Value</div>
+        <div class="stat-value" id="port-total">$10,000.00</div>
+      </div>
+    </div>
+    <div class="portfolio-actions">
+      <button id="reset-portfolio" class="btn-danger">🔄 Reset Portfolio</button>
+      <button id="export-portfolio" class="btn-secondary">📥 Export</button>
+    </div>
+    <h2>Open Positions</h2>
+    <div id="positions-container">
+      <p class="empty">No open positions. Start trading in the Markets tab!</p>
+    </div>
+    <h2>Trade History</h2>
+    <div id="history-container">
+      <p class="empty">No trades yet.</p>
+    </div>
+  </section>
+
+  <!-- SCANNER TAB -->
+  <section id="tab-scanner" class="tab-content">
+    <div class="scanner-controls">
+      <select id="scan-strategy">
+        <option value="cal">Calendar Spreads</option>
+        <option value="excl">Mutual Exclusivity</option>
+        <option value="wide">Wide Spreads</option>
+        <option value="all">All Strategies</option>
+      </select>
+      <button id="scan-btn">🔍 Run Scanner</button>
+      <span class="scan-status" id="scan-status"></span>
+    </div>
+    <div id="scanner-results">
+      <p class="empty">Click "Run Scanner" to find arbitrage opportunities.</p>
+    </div>
+  </section>
+
+  <!-- NEWS EDGE TAB -->
+  <section id="tab-news" class="tab-content">
+    <div class="news-controls">
+      <button id="news-load-btn">📰 Load Top Markets</button>
+      <span class="news-status" id="news-status"></span>
+    </div>
+    <div id="news-container">
+      <p class="empty">Click "Load Top Markets" to see markets with news-edge potential.</p>
+    </div>
+  </section>
+</main>
+
+<!-- TRADE MODAL -->
+<div id="trade-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="trade-title">Trade</h2>
+      <button class="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="trade-market-info" id="trade-market-info"></div>
+      <div class="trade-form">
+        <div class="trade-side">
+          <button class="side-btn active" data-side="buy">BUY</button>
+          <button class="side-btn" data-side="sell">SELL</button>
+        </div>
+        <div class="trade-outcome">
+          <button class="outcome-btn active" data-outcome="yes">YES</button>
+          <button class="outcome-btn" data-outcome="no">NO</button>
+        </div>
+        <div class="trade-row">
+          <label>Price (per share)</label>
+          <input type="number" id="trade-price" step="0.01" min="0.01" max="1.00" value="0.50" placeholder="0.50">
+        </div>
+        <div class="trade-row">
+          <label>Shares</label>
+          <input type="number" id="trade-shares" min="1" value="10" placeholder="10">
+        </div>
+        <div class="trade-row">
+          <label>Total Cost</label>
+          <span id="trade-total">$5.00</span>
+        </div>
+        <div class="trade-row">
+          <label>Max Profit/Loss</label>
+          <span id="trade-risk">Max profit: $5.00 | Max loss: $5.00</span>
+        </div>
+        <div class="trade-error hidden" id="trade-error"></div>
+        <button id="trade-execute" class="btn-primary">Place Paper Trade</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/portfolio.js"></script>
+<script src="js/scanner.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
