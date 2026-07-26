@@ -6,6 +6,18 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Phase 2 — complete ✅
+
+**Done:** Fill engine with strict book-walking (`agent/engine/fills.py`), portfolio engine with VWAP-based position tracking (`agent/engine/portfolio.py`), settlement engine with resolution polling (`agent/engine/settlement.py`).
+
+**Acceptance:** 7/7 adversarial tests pass. Depth limits enforced (1000→530 fill). Round-trip loses $2.20 (buy 0.642, sell 0.620). NO positions marked from NO book (0.36) not YES book (0.62). Settlement ties to the cent ($1000→$1020, net +$20). Empty books reject fills. Settlement logic correct.
+
+**Deviation:** Passive order adversarial test deferred to Phase 3 (requires replay harness). Justified in `reports/phase-2-report.md`.
+
+**Design:** Two fill modes — `strict` (book-walking, for adversarial tests) and `realistic` (CLOB /price endpoint, for strategy backtesting). The realistic mode solves the Phase 1 problem of 99.8% spreads making book-walking unrealistic for strategy evaluation.
+
+**Next:** Phase 3 (backtest harness) or Phase 4 (favorite-longshot strategy). Recommendation: skip Phase 3 initially and go straight to Phase 4 with realistic fills, since the mechanical favorite-longshot bias can be validated against known research without a full replay harness. Add the harness when the LLM forecaster needs backtesting.
+
 ## 2026-07-26 — Phase 1 — complete ✅
 
 **Done:** Data layer ported to Python. `agent/polymarket/client.py` (async httpx client for Gamma + CLOB), `agent/polymarket/models.py` (Market, Token, OrderBook, BookLevel). Each market modeled with two separate outcome tokens, each with own book. Rate-limited with exponential backoff.
