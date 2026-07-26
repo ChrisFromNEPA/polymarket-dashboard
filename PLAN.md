@@ -1,446 +1,415 @@
-# Polymarket Autonomous Paper-Trading Agent — Build Plan
+# Polymarket Autonomous Forecasting Agent — Build Plan v2
 
-**Status:** Phase 0 (not started)
-**Owner:** Hermes agent (Nous Research), running on always-on Ubuntu VM
+**Version:** 2.0 (supersedes v1.0 of 2026-07-26)
+**Status:** Phase 2.5 — remediation, then Phase 3
+**Owner:** Hermes agent (Nous Research), always-on Ubuntu VM
 **Human:** ChrisFromNEPA
 **Last updated:** 2026-07-26
 
 ---
 
-## 0. Read this first
+## 0. What changed in v2, and why
 
-This document is the single source of truth for the build. Hermes should work
-through it phase by phase, and **report back** using the protocol in §9.
+v1 got the skeleton built fast — data layer, fill engine, portfolio, settlement,
+risk, MCP, dashboard. Then the first live cycle produced a result that was invalid
+four ways over (see **`reports/review-01.md`**).
 
-If you (Hermes) disagree with something here, **say so in a report before
-implementing a deviation.** Several decisions in this plan are deliberate and
-counterintuitive, and are load-bearing for the experiment's validity.
+The most important thing that happened: **the honest fill engine caught a
+worthless strategy on cycle one.** That is the system working. v2 builds on that.
+
+Three things drive v2:
+
+1. **A hard economic finding.** The agent bought NO at $0.999 — risking 99.9¢ to
+   win 0.1¢. Generalized: *on longshots, the bid-ask spread exceeds the
+   favorite-longshot edge.* A few-cent statistical bias cannot survive crossing a
+   multi-cent spread. The mechanical strategy is likely dead on arrival as a
+   profit source.
+
+2. **Prior art exists and we were reinventing it.** Polymarket published an
+   official agent framework; a third party has already built almost exactly our
+   architecture (MCP + SQLite + Claude + paper trading). We should mine both.
+
+3. **The research literature says where the real edge is.** LLM forecasters now
+   reach Brier scores statistically indistinguishable from human superforecasters
+   — but only with retrieval, ensembling, and **post-hoc statistical
+   calibration**. And crucially: *LLMs beat markets at long horizons and lose to
+   them near resolution.* That tells us exactly which markets to trade.
+
+**Strategic pivot:** the favorite-longshot strategy is demoted from "the edge" to
+"the pipeline validator." The real candidate edge is a **calibrated LLM
+forecaster on long-horizon markets, executed passively.**
 
 ---
 
-## 1. Mission, stated honestly
+## 1. Mission
 
-Build a fully autonomous agent that trades Polymarket prediction markets with
-**fake money**, long-term, and produces a **falsifiable record** of whether it
-has genuine predictive edge.
+Build a fully autonomous agent that trades Polymarket with **fake money**,
+long-term, producing a **falsifiable record** of whether it has genuine
+predictive edge.
 
-The goal is **not** "make money." That framing produces an agent that
-rationalizes trades and a backtest that flatters itself. The goal is a
-measurable edge that either shows up in the numbers or does not.
+Not "make money" — that framing produces an agent that rationalizes trades and a
+backtest that flatters itself. Only ~7.6% of Polymarket wallets finish profitable.
 
-Grounding reality: analysis of Polymarket wallets finds only ~7.6% finish
-profitable, with the top ~0.04% capturing ~70% of all PnL. Most participants
-lose. An agent that "looks profitable" after a few weeks of paper trading is
-almost certainly measuring a bug in its own fill model, not alpha.
+### The metric that matters
 
-### The one metric that matters
-
-**Brier score of the agent's probability estimate vs. the Brier score of the
-market price at the same moment.**
-
-For every decision, log the agent's probability estimate `p_agent` and the
-market's implied probability `p_market` at decision time. When the market
-resolves to outcome `y ∈ {0,1}`, compute:
+**Brier score of the agent vs. the market price at decision time.**
 
 ```
 brier_agent  = mean((p_agent  - y)^2)
 brier_market = mean((p_market - y)^2)
 ```
 
-If `brier_agent >= brier_market`, **the agent has no predictive edge**,
-regardless of what the P&L says. P&L over a few hundred trades is dominated by
-variance; Brier is not. This comparison is the experiment.
+If `brier_agent >= brier_market`, there is no predictive edge, whatever P&L says.
+Log it for every market evaluated, **including declined ones** — free calibration
+data.
 
-Log this for *every* market the agent evaluates — including ones it declined to
-trade. Declined evaluations are free calibration data.
+### Concrete targets from the literature
 
----
-
-## 2. Success criteria
-
-| Criterion | Bar |
+| Forecaster | Brier (ForecastBench) |
 |---|---|
-| Predictive edge | `brier_agent < brier_market`, sustained over 200+ resolved markets |
-| Calibration | Reliability curve within ±5% across confidence buckets |
-| P&L | Positive **after** modeled spread/slippage, attributed per strategy |
-| Benchmark | Beats "always buy the favorite" and "buy-and-hold market price" |
-| Honesty | Fill model passes the adversarial tests in Phase 2 |
+| Human superforecasters | **0.096** |
+| Best LLM + crowd access | 0.122 |
+| Best LLM, no crowd | 0.136 |
+| General public | 0.121 |
+| AIA Forecaster (SOTA agentic) | **0.0753** vs. superforecaster 0.0740 |
 
-A negative result is a **valid and useful outcome**. Do not tune the simulator
-until the result turns positive — that is the primary failure mode of this
-entire class of project.
+An ensemble of 12 LLMs performed indistinguishably from a crowd of 925 humans.
+
+**Our bar:** `brier_agent < brier_market` on the markets actually traded. Absolute
+Brier isn't comparable across question sets — only the paired comparison counts.
+
+⚠️ **Critical caveat from the same literature:** *high probabilistic calibration
+does not guarantee superior trading returns.* Beating the market's Brier is
+necessary but not sufficient — costs can still eat the edge. Track both, and never
+report one without the other.
 
 ---
 
-## 3. Hazards — known false edges (do NOT build these as-is)
+## 2. Prior art — use, mine, or avoid
 
-The existing `js/scanner.js` implements three "arbitrage" strategies. **All
-three are false-positive generators in their current form.** They must not be
-ported forward without the fixes noted.
+Do not rebuild what exists. Evaluate each of these in Phase 2.5 and report a
+recommendation.
 
-### 3.1 Calendar spreads (`js/scanner.js:4`)
-Pairs markets by "3+ common words ≥4 chars" overlap (`scanner.js:28-32`), then
-flags `pEarly > pLate + 0.02`.
+| Project | What it gives us | Verdict |
+|---|---|---|
+| **[Polymarket/py-sdk](https://github.com/Polymarket)** (supersedes [py-clob-client](https://github.com/Polymarket/py-clob-client)) | Official, maintained client | **Evaluate to replace our hand-rolled client** |
+| [Polymarket/agents](https://github.com/Polymarket/agents) | Official framework: RAG/Chroma, superforecasting prompts, Gamma/CLOB wrappers | **ARCHIVED May 2026** — mine the prompts + RAG design, don't depend on it |
+| [artvandelay/polymarket-agents](https://github.com/artvandelay/polymarket-agents) | MCP server (10 tools), bot loop, SQLite schema, Claude strategy, Kelly EV | **Closest prior art — study its schema and tool surface.** Caveat: mock data in places, no backtesting |
+| [warproxxx/poly_data](https://github.com/warproxxx/poly_data) | Historical markets, order events, trades retriever | **Strong candidate for the Phase 3 backtest corpus** |
+| [Polymarket/resolution-subgraph](https://github.com/Polymarket/resolution-subgraph) | Resolution events | Settlement + backtest ground-truth labels |
+| [pascal-labs/polymarket-sdk](https://github.com/pascal-labs/polymarket-sdk) | WebSocket feeds, position mgmt | Mine for the WebSocket approach |
+| [CloddsBot](https://github.com/alsk1992/CloddsBot) | Multi-venue (Polymarket + Kalshi + others) | Reference for future cross-venue arb |
+| [ForecastBench](https://www.forecastbench.org/) | Standard forecasting benchmark | Calibrate our forecaster against it |
 
-**Why it's wrong:** word overlap does not establish that one market's outcome is
-logically *nested* inside another's. "Will X happen by March" vs "Will X happen
-by June" is a real nesting. "Will Trump win Iowa" vs "Will Trump win Ohio"
-shares 3+ words and is not. You will get garbage pairs flagged as free money.
+⚠️ **Subgraph caveat:** Polymarket migrated to new CTF Exchange contracts on
+**2026-04-28** and stopped supporting the old subgraph indexer. Old
+Goldsky/GraphQL pipelines return incomplete data. Verify any subgraph source
+returns post-April-2026 data before building on it.
 
-**Fix:** require verified logical nesting — same underlying event, same
-resolution source, strictly nested time windows — parsed from resolution
-criteria, not from question-text word overlap. If nesting can't be established
-with high confidence, discard the pair.
+⚠️ **Legal:** Polymarket's ToS prohibits trading by US persons. We are paper
+trading only — no wallet, no keys, no orders. Keep it that way (§8).
 
-### 3.2 Mutual exclusivity (`js/scanner.js:94`)
-Sums `outcomePrices[0]` across markets and flags sum > 1.03 (`scanner.js:121`).
+---
 
-**Why it's wrong, two ways:**
-1. It sums **mid/last-trade prices**, which are not executable. Real arbitrage
-   requires the sum of **NO asks** to clear the threshold after fees. Mid-price
-   sums exceed 1.0 routinely from spread artifacts alone, with zero executable
-   edge.
-2. Polymarket's **NegRisk adapter** structurally enforces exclusivity on these
-   markets and lets traders convert NO baskets into YES + collateral. These are
-   among the most heavily arbitraged markets on the platform. A retail-visible
-   3% edge sitting there is far more likely a data artifact than an opportunity.
+## 3. Blocking defects — fix before any new features
 
-**Fix:** use executable asks only, subtract fees, detect `negRisk: true` and
-account for adapter mechanics. Expect this strategy to find approximately
-nothing. That is the correct result.
+Full detail with file:line in **`reports/review-01.md`**. Summary:
 
-### 3.3 Wide spreads (`js/scanner.js:135`)
-Flags spread > 5% as a market-making opportunity (`scanner.js:159`).
+| # | Defect | Location |
+|---|---|---|
+| 1 | Strategy `edge` is a constant; `p_agent` is a deterministic function of `p_market` → Brier comparison structurally impossible | `strategies/longshot.py:90` |
+| 2 | Economics ignore spread — bought NO at 0.999 to win 0.1¢ | strategy design |
+| 3 | P&L values open positions at **zero**; `get_total_equity()` never called | `runner.py:205,218` |
+| 4 | Correlated-cluster cap not enforced — 4/4 positions in one NegRisk event | `risk/manager.py` |
+| 5 | `mode` param is a no-op; `_realistic_fill` is unreachable dead code containing fabricated liquidity | `engine/fills.py:166` |
+| 6 | "99.8% spreads on 100% of markets" was worked around, not diagnosed | `polymarket/client.py` |
 
-**Why it's wrong — this is the most dangerous one.** A wide spread in a thin
-market is compensation for **adverse selection**, not free money. The spread is
-wide *because* informed flow picks off resting orders. A naive paper simulator
-will "fill" both sides instantly and print fabricated profit.
+**Required order:** 6 → 3 → 5 → 4 → Phase 3 → 1 & 2.
 
-**Fix:** do not implement passive market making until the Phase 2 fill engine
-can prove a resting order only fills when the market actually traded through it.
-Then expect the edge to largely evaporate. That is the correct result.
-
-### 3.4 Confirmed real bug — NO positions are mismarked (`js/app.js:39`)
-
-**Investigated and confirmed. This is a genuine bug, fix it in the port.**
-
-`js/app.js:29` correctly passes the per-outcome token (`tokenYes`/`tokenNo`) to
-the price fetcher. But the NO branch at `js/app.js:37-39` does:
-
-```js
-} else {
-  // NO token value = 1 - best ask for YES, or from orderbook
-  return asks.length ? 1 - parseFloat(asks[0].price) : 0.5;
-}
-```
-
-The comment says "best ask for YES" but the function was passed the **NO
-token**, so `asks[0].price` is the ask on the NO book — already the NO price.
-Computing `1 - ask_NO ≈ 1 - (1 - p_YES) = p_YES` marks every NO position at
-roughly the **YES** price.
-
-Concretely: hold NO trading at $0.30 and the dashboard values it at ~$0.69.
-
-Correct behavior: mark each outcome token from **its own book's best bid**
-(what you could actually sell into), consistently for YES and NO.
-
-> **Note for the record:** an earlier review claimed the code "reuses one
-> tokenId for both outcomes." That claim was **wrong** — token routing is
-> correct. The bug is the inversion described above. Don't go hunting for the
-> wrong bug.
-
-### 3.5 No settlement exists
-Nothing in the current code resolves positions to $1/$0. Without settlement the
-portfolio drifts on mark-to-market forever and never produces a verdict. This is
-a missing core mechanic, not a nice-to-have.
+**Do not resume live cycles until 6, 3, 5, 4 are done.** Reset the portfolio
+afterward — `state/portfolio.json` records an invalid run.
 
 ---
 
 ## 4. Architecture
 
-SQLite is the source of truth — atomic, transactional, queryable. GitHub
-receives **published snapshots**. Using git commits as the live database would
-create race conditions and an unusable commit history.
+SQLite is the source of truth. GitHub receives published snapshots. Git-as-database
+would create race conditions and an unreadable history.
 
 ```
    Hermes (cron, autonomous, Ubuntu VM)
       │  MCP tools
       ▼
-┌──────────────────────────────────────────┐
-│  agent/  (Python)                        │
-│  ┌────────────┬──────────────┬────────┐  │
-│  │ Data layer │ Fill engine  │ Risk   │  │◄── Polymarket
-│  │ Gamma/CLOB │ walks book,  │ Kelly, │  │    Gamma / CLOB
-│  │ prices-hist│ settlement   │ caps   │  │    /prices-history
-│  └────────────┴──────────────┴────────┘  │
-│     Strategies: longshot │ LLM forecaster │
-└──────────────────┬───────────────────────┘
+┌────────────────────────────────────────────────────┐
+│  agent/  (Python)                                  │
+│                                                    │
+│  Data      │ Fill engine  │ Risk      │ Forecaster │
+│  Gamma/    │ book-walk,   │ ¼-Kelly,  │ retrieval  │
+│  CLOB/ws   │ passive,     │ cluster   │ + ensemble │
+│  history   │ settlement   │ caps      │ + CALIB.   │
+│                                                    │
+│  Strategies: longshot (validator) │ forecaster     │
+└──────────────────┬─────────────────────────────────┘
                    │ SQLite = truth
                    ▼ publish snapshots
         state/*.json ──► git push ──► GitHub Pages
                                       (read-only dashboard)
 ```
 
-**Key inversion:** the LLM *proposes*; the deterministic engine *validates,
-sizes, and fills*. Guardrails are enforced in code and are never trusted to the
-model. An LLM asked to respect a position limit will eventually not.
+**Key inversion, unchanged:** the LLM *proposes*; deterministic code *validates,
+sizes, and fills*. Guardrails live in code. An LLM asked to respect a position
+limit will eventually not.
 
-### Single repo, deliberately
-The Python agent lives in this same repo as the dashboard. GitHub Pages serves
-static files from root and ignores the Python. This means the dashboard fetches
-`state/portfolio.json` as a **same-origin relative path** — no CORS, no second
-deploy target.
+---
 
-### Target layout
+## 5. The forecasting stack (the core of v2)
+
+This is where real edge is plausible. Build it in this order — **each layer is
+useless without the one before it.**
+
+### 5.1 Market selection — trade where LLMs actually win
+
+Research finding: **LLMs outperform markets at long forecast horizons and lose
+their edge in the final hours**, because they aggregate new information more
+slowly than markets do.
+
+Therefore:
+- **Prefer long-horizon markets** (weeks to months to resolution).
+- **Hard-exclude near-resolution markets** — configurable, start at 48h.
+- Require real liquidity (from the Defect 6 diagnosis, by *current* liquidity).
+- Prefer markets with objective, checkable resolution sources.
+
+### 5.2 Retrieval — the agent must read before it forecasts
+
+- News + web search scoped to the market's resolution window.
+- Extract and reason over the **full resolution criteria text**, not the title.
+  LLMs are genuinely good at fine-print reading; this is a real edge source.
+- Cache retrieved evidence in SQLite, keyed to the decision, so the reasoning is
+  auditable after resolution.
+
+### 5.3 Structured forecast — base rate first
+
+Force this output shape. Free-form reasoning produces anchored, overconfident
+numbers:
+
+1. **Reference class** and its base rate
+2. **Evidence for**, with source and date
+3. **Evidence against**, with source and date
+4. **Time-to-resolution** adjustment
+5. **`p_raw`** — the probability estimate
+6. **Confidence** — and *why*
+
+The model must produce `p_raw` **without seeing `p_market`** for the first pass.
+Otherwise it anchors on the market and `p_agent` collapses into a transform of
+`p_market` — which is precisely how Defect 1 happened.
+
+### 5.4 Ensemble + supervisor reconciliation
+
+- Query **multiple models** (Hermes supports many providers) and/or multiple
+  prompt framings. An ensemble of 12 LLMs matched a 925-human crowd.
+- Use **confidence gating**, not naive averaging: override the ensemble mean only
+  when follow-up evidence shows genuine resolving power.
+- A **supervisor pass** reconciles disagreement between ensemble members and
+  produces a single `p_ensemble` plus a disagreement measure.
+
+### 5.5 Post-hoc calibration — the step that makes it work ⭐
+
+**This is the single highest-value component and the one most likely to be
+skipped. Do not skip it.**
+
+RLHF-tuned LLMs **hedge toward mid-range probabilities**. Correct this
+statistically, not by prompting:
+
+- **Extremization** — log-odds power transform, pushing moderate estimates outward
+- **Platt scaling** — logistic recalibration
+- **Isotonic regression** — non-parametric, needs more data
+- **Temperature scaling** — simplest baseline
+
+Fit on the Phase 3 historical corpus; refit periodically as live resolutions
+accumulate. Track **Expected Calibration Error (ECE)** alongside Brier, plus
+reliability diagrams and overconfidence rate.
+
+`p_agent = calibrate(p_ensemble)` — and `p_agent` is what gets logged for Brier
+and used for sizing. Never trade on `p_raw`.
+
+### 5.6 Trade gate — edge must survive costs
+
 ```
-index.html, css/, js/        # dashboard (Pages serves from root)
-agent/
-  __init__.py
-  config.py                  # thresholds, caps, tunables — no magic numbers inline
-  polymarket/
-    client.py                # Gamma + CLOB HTTP, retries, rate limiting
-    models.py                # Market, Token, Book, Position dataclasses
-    history.py               # /prices-history wrapper
-  engine/
-    fills.py                 # order book walking, slippage  ← most important file
-    portfolio.py             # cash, positions, avg price, realized/unrealized
-    settlement.py            # resolution polling → $1/$0
-  strategies/
-    base.py                  # Strategy protocol: propose() -> [TradeProposal]
-    longshot.py              # Phase 4 — first and only strategy at launch
-  risk/
-    manager.py               # fractional Kelly, caps, circuit breaker
-  backtest/
-    replay.py                # /prices-history replay harness
-  publish/
-    snapshots.py             # SQLite → state/*.json → git push
-  mcp_server.py              # tools Hermes calls
-tests/                       # pytest — must pass before any phase is "done"
-state/                       # published JSON (committed)
-reports/                     # Hermes status reports (see §9)
+edge          = |p_agent - p_market|
+cost          = half_spread + fees + slippage_estimate
+edge_net      = edge - cost
+trade only if   edge_net > hurdle   AND   ensemble_disagreement < max_disagreement
 ```
 
----
+The hurdle exists because LLMs are overconfident. Start conservative (3–5¢) and
+tune only against backtest results, never against live P&L.
 
-## 5. Environment
+### 5.7 Execution — passive by default
 
-- **Runtime:** always-on Ubuntu VM (Hermes's host). This is the only place the
-  agent runs. GitHub Pages can only *display* — it cannot run the agent.
-- **Python:** 3.11+. Use `uv` (Hermes already depends on it).
-- **The human's Windows machine has no Python and no WSL.** All Python execution
-  and testing happens on the VM. Code may be authored on Windows and pushed;
-  Hermes runs and validates it.
-- **Dependencies:** keep minimal — `httpx`, `pydantic`, `pytest`. Justify any
-  addition in a report.
-- **Secrets:** never commit tokens. Git push auth via a fine-grained PAT scoped
-  to this repo with `contents:write`, stored in the VM environment only.
+Defect 2's lesson: crossing the spread destroys a few-cent edge. Post passive
+limit orders and accept non-fills. This makes the **passive-fill simulation**
+(Phase 2.5) load-bearing for the whole project — if it's optimistic, everything
+downstream is fiction.
 
 ---
 
-## 6. Scope decision — launch with ONE strategy
+## 6. Phases
 
-**Launch with favorite-longshot bias only.** This is decided; do not expand
-scope without reporting first.
+Each phase has acceptance criteria. Not done until tests pass on the VM **and** a
+report is filed per §9.
 
-Rationale: the favorite-longshot bias (longshots systematically overpriced,
-favorites underpriced) is the best-evidenced systematic edge in prediction
-markets, it is **mechanical**, and it is **backtestable** against
-`/prices-history`. It validates the entire pipeline honestly.
+### Phase 2.5 — Remediation (BLOCKING, do first)
+Fix Defects 6, 3, 5, 4 in that order. Evaluate the §2 prior art and report a
+build-vs-adopt recommendation for the API client.
 
-Adding the LLM forecaster on day one makes it impossible to distinguish "bad
-forecasts" from "broken simulator." The fill engine must be proven trustworthy
-against a mechanical strategy first. The LLM forecaster is Phase 7, gated on
-Phase 2's adversarial tests passing.
+**Acceptance:**
+- Spread distribution reported across top 50 markets by *current liquidity*, with
+  a diagnosis of the 99.8% finding
+- Equity = cash + Σ(shares × mark), marks from each token's own best bid;
+  circuit breaker wired to true equity
+- `_realistic_fill` and `mode` deleted; **passive-order test implemented and
+  passing** (resting order fills only when later prints cross it)
+- Cluster cap test: 4 proposals in one NegRisk event cannot all be approved
+- Portfolio reset; `state/` reflects a clean start
 
----
-
-## 7. Phases
-
-Each phase has **acceptance criteria**. A phase is not done until its tests pass
-on the VM and a report is filed per §9.
-
-### Phase 1 — Data layer
-Port `js/api.js` to Python, correctly.
-
-- Gamma: trending events, search, event-by-slug.
-- CLOB: `/book`, `/midpoint`, `/spread`, `/prices-history`.
-- Model each market's **two outcome tokens separately**, each with its own book.
-- Capture `negRisk` flag, `conditionId`, full **resolution criteria text**, close
-  time, and volume/liquidity.
-- Rate limiting + retry with backoff. Be a well-behaved API client.
-
-**Acceptance:** fetch 50 live markets; for each, assert `p_yes + p_no` is within
-2% of 1.0 using each token's own book. Any market failing this indicates a token
-mapping error. Report the pass rate.
-
-### Phase 2 — Honest fill engine ← THE CRITICAL PHASE
-This file determines whether the entire experiment is meaningful.
-
-- **Marketable orders** walk the live book level by level, consuming size at
-  each price, and pay the spread. No filling at mid. Ever.
-- **Size limits:** if the book lacks depth, the order **partially fills or is
-  rejected**. Never synthesize liquidity that isn't there.
-- **Passive orders** rest and fill **only when subsequent trade prints cross
-  them** — verified against later price history, not assumed.
-- **Latency:** model a delay between decision and fill; the book may move.
-- **Fees:** apply Polymarket's fee structure.
-- **Settlement** (`settlement.py`): poll resolution status, settle positions to
-  $1/$0, realize P&L, mark the market closed.
-- **Bias toward pessimism.** Where uncertain, assume the worse fill. A
-  conservative simulator that understates edge is useful; an optimistic one is
-  worthless.
-
-**Acceptance — adversarial tests, all must pass:**
-1. Buying more than book depth cannot fill entirely at the top-of-book price.
-2. An immediate buy-then-sell round trip **loses money** (pays spread twice).
-3. A passive order in a market that never traded through it does **not** fill.
-4. A resolved market settles positions to exactly $1/$0 and realized P&L ties
-   out against cash movements to the cent.
-5. Marking a NO position uses the NO book's own bid (regression test for §3.4).
-
-If test 2 shows a profit, the fill engine is broken. Stop and report.
-
-### Phase 3 — Backtest harness
-Replay `/prices-history` to validate strategies before any forward trading.
-
+### Phase 3 — Backtest harness + historical corpus (NO LONGER SKIPPABLE)
+- Build the resolved-market corpus (evaluate `poly_data`, resolution subgraph,
+  `/prices-history`). Verify post-2026-04-28 data completeness.
+- Replay harness reusing the **exact same fill engine** as live. No separate
+  backtest fill path — that divergence is how backtests come to lie.
 - Deterministic, seeded, reproducible.
-- Reuses the **exact same** fill engine as live. No separate backtest fill path —
-  that divergence is how backtests come to lie.
-- Reports: P&L, Brier vs market, calibration curve, max drawdown, trade count.
+- Outputs: P&L, Brier vs. market, ECE, reliability diagram, max drawdown.
 
-**Acceptance:** a deliberately edgeless strategy (trade at market price at
-random) backtests to approximately **negative** the spread cost. If a random
-strategy shows profit, the harness is broken.
+**Acceptance:** an edgeless control strategy (trade at market, at random)
+backtests to approximately **negative the cost of trading**. If random shows
+profit, the harness is broken — stop and report.
 
-### Phase 4 — Favorite-longshot strategy
-- Fit the bias curve on historical resolved markets: bucket by entry price,
-  measure realized frequency vs. implied probability.
-- Trade only where the historical deviation exceeds spread + fees by a margin.
-- Emit `TradeProposal` objects with an explicit `p_agent` estimate — required for
-  Brier scoring.
+### Phase 4 — Longshot, refit from data (validator, not profit centre)
+- Fit the bias curve on resolved markets: bucket by entry price, realized
+  frequency vs. implied, with CIs and per-bucket sample size.
+- Gate on `edge_net > hurdle` (§5.6).
 
-**Acceptance:** backtest shows the bias curve, with confidence intervals and
-sample size per bucket. If the effect is inside the error bars, **report that
-honestly** rather than trading it.
+**Acceptance:** publish the fitted curve. **Expect it to trade rarely or never
+after costs — that is the correct result, and it validates the pipeline.** If the
+effect sits inside the error bars, report that plainly.
 
-### Phase 5 — Risk manager
-- **Fractional Kelly (quarter-Kelly).** For a contract at price `c` with agent
-  probability `p`: `f* = (p - c) / (1 - c)`, then size at `0.25 * f*`. Full
-  Kelly on a mis-estimated probability blows up the account.
-- Max % of bankroll per position; max exposure per correlated event cluster.
-- Minimum liquidity/volume floor; reject closed or near-expiry markets.
-- Daily trade cap; per-market cooldown to prevent churn.
-- **Circuit breaker:** on drawdown > X%, halt trading and require human review.
+### Phase 5 — Risk manager hardening
+- Fractional Kelly (**quarter-Kelly**): for price `c`, agent probability `p`,
+  `f* = (p - c) / (1 - c)`, size at `0.25 × f*`.
+- Reject asymmetric-payoff traps: cap the max price paid per share (a 0.999 buy
+  should be structurally impossible).
+- Cluster caps by NegRisk group / event id; per-market cooldown; daily trade cap.
+- Circuit breaker on true-equity drawdown.
 
 **Acceptance:** unit tests prove every limit holds against adversarial proposals,
-including proposals that would individually pass but collectively breach a
-cluster cap.
+including ones that pass individually but breach a cluster cap collectively.
 
-### Phase 6 — MCP server + autonomy
-- Expose tools: `scan_markets`, `get_book`, `get_market_detail`,
-  `propose_trade`, `get_portfolio`, `get_scorecard`, `get_recent_decisions`.
-- `propose_trade` runs the full risk gauntlet and **may reject**. Rejection with
-  a reason is a normal, expected outcome.
-- Register with Hermes; drive via its built-in cron: scan → estimate → size →
-  execute → log reasoning.
+### Phase 6 — Forecaster v1 (retrieval + structured output)
+Implements §5.1–5.3. Single model, no ensemble yet.
 
-**Acceptance:** a full unattended cycle runs end to end and writes a decision log
-including declined trades with reasons.
+**Acceptance:** on a held-out set of *already-resolved* markets the model has no
+training-data access to, report `brier_agent` vs `brier_market`. Blind: the
+forecaster must not see `p_market` before producing `p_raw`.
 
-### Phase 7 — GitHub publishing
-Snapshots written to `state/`:
-- `portfolio.json` — cash, positions, live marks, totals
-- `trades.jsonl` — append-only executed trades w/ thesis + `p_agent`
-- `decisions.json` — **including rejected trades and why** (key observability)
-- `equity.json` — time series for charting
-- `scorecard.json` — Brier vs market, calibration, P&L per strategy
+### Phase 7 — Ensemble + calibration ⭐
+Implements §5.4–5.5.
 
-Plus a **scheduled GitHub Action** that re-marks the portfolio every ~15 min so
-the dashboard stays live even when Hermes is idle.
+**Acceptance:** calibration measurably improves ECE on held-out data vs.
+uncalibrated. Report reliability diagrams before/after. This is the phase most
+likely to determine whether the project succeeds.
 
-**Acceptance:** dashboard renders live from committed JSON with no CORS errors;
-Action runs green on schedule.
+### Phase 8 — Autonomy, publishing, dashboard
+- MCP tools + Hermes cron loop (4-hourly default).
+- `state/`: `portfolio.json`, `trades.jsonl`, `decisions.json` (**including
+  rejected trades and why**), `equity.json`, `scorecard.json`, `calibration.json`.
+- Scheduled GitHub Action re-marks the portfolio every ~15 min so the dashboard
+  stays live when Hermes is idle.
+- Dashboard as observability: equity curve, positions, **decision feed with
+  reasoning**, reliability diagram, Brier-vs-market scoreboard.
 
-### Phase 8 — Dashboard as observability
-Rebuild the site as a read-only window into the agent:
-- Equity curve, open positions with live marks
-- **Decision feed** — the agent's thesis per trade, and what it rejected
-- Calibration chart: `p_agent` vs realized frequency
-- Brier-vs-market scoreboard
+**Acceptance:** a full unattended cycle end-to-end; dashboard renders from
+committed JSON with no CORS errors.
 
-Manual trading moves to a clearly separated sandbox mode.
+### Phase 9 — Long-run operation
+- Weekly auto-generated report: Brier vs. market, ECE, P&L by strategy, drawdown.
+- Refit calibration as resolutions accumulate.
+- Benchmarks: "always buy the favorite", "buy at market and hold", random.
 
-### Phase 9 — LLM forecaster (gated)
-**Do not start until Phase 2 acceptance tests pass and Phase 4 has produced a
-clean backtest.**
+---
 
-- Structured forecasting: base rate → evidence → probability → confidence.
-- Only trade when `p_agent` beats `p_market` by a hurdle exceeding spread + fees.
-- LLMs are systematically overconfident; the hurdle is doing real work.
-- Log full reasoning for every estimate for later calibration analysis.
+## 7. Open questions — defaults accepted
+
+Hermes's Phase 0 defaults are **accepted** with one change:
+
+1. **Bankroll:** $10,000 ✅
+2. **Cadence:** 4-hourly ✅
+3. **Circuit breaker:** 20% drawdown ✅ — but on **true equity** (Defect 3)
+4. **Market scope:** ⚠️ **changed** — additionally require long horizon
+   (exclude <48h to resolution, §5.1) and filter by *current liquidity*, not
+   lifetime volume
 
 ---
 
 ## 8. Anti-goals
 
-- ❌ No real-money trading. No wallet, no private keys, no signing. Ever.
-- ❌ Do not tune the simulator to make results look better.
+- ❌ No real-money trading. No wallet, no private keys, no order signing. Ever.
+  (Also: Polymarket ToS prohibits US persons from trading.)
+- ❌ Do not tune the simulator, hurdle, or thresholds against live P&L.
 - ❌ Do not let the LLM enforce its own risk limits.
-- ❌ Do not add strategies before the fill engine passes its adversarial tests.
-- ❌ Do not report P&L without the accompanying Brier comparison.
+- ❌ Do not let the forecaster see `p_market` before producing `p_raw`.
+- ❌ Do not report P&L without the paired Brier comparison.
+- ❌ Do not add a strategy before the fill engine passes **all six** adversarial
+  tests, passive order included.
 
 ---
 
-## 9. Reporting protocol — how Hermes reports back
+## 9. Reporting protocol
 
-**Running log:** `reports/STATUS.md`, newest entry at top:
+**Running log:** `reports/STATUS.md`, newest first. Short entries.
 
-```markdown
-## 2026-07-27 — Phase 2 — in progress
-**Done:** book-walking fill implemented; tests 1,3,5 passing
-**Blocked:** test 2 (round trip) shows +$0.02 profit — investigating fee sign
-**Next:** verify fee application direction
-**Confidence:** medium — suspect fees applied as credit not debit
-```
+**Per-phase:** `reports/phase-N-report.md` — what was built, deviations **with
+justification**, every acceptance criterion with actual numbers, and anything
+discovered that contradicts this plan.
 
-**Per-phase completion:** `reports/phase-N-report.md` containing:
-- What was built, and any deviation from this plan **with justification**
-- Acceptance criteria results — each one, pass/fail, with actual numbers
-- Anything discovered that contradicts this plan (**especially valuable**)
-- Recommended changes to later phases
-
-**Blockers:** open a GitHub issue labeled `blocker` + `phase-N`. Do not silently
-work around a blocker that invalidates an assumption in this plan.
+**Blockers:** GitHub issue labeled `blocker` + `phase-N`.
 
 **Commits:** `phase-N: short description`. Small and frequent.
 
 ### Report contradictions loudly
-If Hermes finds that the favorite-longshot effect doesn't replicate, or that the
-fill engine kills the edge, or that this plan is wrong somewhere — **that is the
-most valuable possible output.** Report it prominently. Do not quietly adjust
-parameters until the numbers look good.
+If the longshot bias doesn't replicate, if calibration doesn't improve ECE, if the
+forecaster can't beat the market's Brier — **that is the most valuable possible
+output.** Report it prominently. Do not quietly adjust parameters until the numbers
+look good.
+
+The v1 cycle already proved this works: honest fills surfaced a worthless strategy
+immediately. Keep that property.
 
 ---
 
-## 10. Open questions for the human
+## 10. References
 
-1. **Bankroll:** keep $10,000 starting fake capital, or a different figure?
-2. **Cadence:** how often should the trading cycle run — hourly, 4-hourly, daily?
-3. **Circuit breaker:** what drawdown % should halt trading for review? (20%?)
-4. **Market scope:** all markets, or restrict to categories (politics, sports,
-   crypto) for a cleaner first experiment?
+**Polymarket**
+- [prices-history API](https://docs.polymarket.com/api-reference/markets/get-prices-history) ·
+  [NegRisk](https://docs.polymarket.com/advanced/neg-risk) ·
+  [Clients & SDKs](https://docs.polymarket.com/api-reference/clients-sdks) ·
+  [Subgraph overview](https://docs.polymarket.com/developers/subgraph/overview)
+- [py-clob-client](https://github.com/Polymarket/py-clob-client) ·
+  [agents (archived)](https://github.com/Polymarket/agents) ·
+  [resolution-subgraph](https://github.com/Polymarket/resolution-subgraph)
 
-Hermes: propose defaults for these in your Phase 0 report rather than blocking
-on them.
+**Prior art**
+- [artvandelay/polymarket-agents](https://github.com/artvandelay/polymarket-agents) ·
+  [warproxxx/poly_data](https://github.com/warproxxx/poly_data) ·
+  [pascal-labs/polymarket-sdk](https://github.com/pascal-labs/polymarket-sdk) ·
+  [CloddsBot](https://github.com/alsk1992/CloddsBot)
 
----
+**Forecasting research**
+- [ForecastBench](https://www.forecastbench.org/) ·
+  [AIA Forecaster](https://arxiv.org/pdf/2511.07678) ·
+  [Foresight Arena](https://arxiv.org/pdf/2605.00420) ·
+  [LLMs vs expert forecasters](https://arxiv.org/pdf/2507.04562) ·
+  [Superforecasting LLM assistant](https://www.emergentmind.com/topics/superforecasting-llm-assistant)
 
-## 11. References
-
-- [Polymarket prices-history API](https://docs.polymarket.com/api-reference/markets/get-prices-history)
-- [Polymarket NegRisk docs](https://docs.polymarket.com/advanced/neg-risk)
-- [neg-risk-ctf-adapter](https://github.com/Polymarket/neg-risk-ctf-adapter)
-- [Systematic Edges in Prediction Markets — QuantPedia](https://quantpedia.com/systematic-edges-in-prediction-markets/)
-- [Accuracy, Skill, and Bias on Polymarket — SSRN](https://papers.ssrn.com/sol3/Delivery.cfm/5910522.pdf?abstractid=5910522&mirid=1)
-- [Hermes agent](https://github.com/nousresearch/hermes-agent)
+**Market edges**
+- [Systematic Edges in Prediction Markets](https://quantpedia.com/systematic-edges-in-prediction-markets/) ·
+  [Accuracy, Skill, and Bias on Polymarket](https://papers.ssrn.com/sol3/Delivery.cfm/5910522.pdf?abstractid=5910522&mirid=1)
