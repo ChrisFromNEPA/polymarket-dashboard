@@ -10,6 +10,42 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Forecaster fixed + market filter shipped (Claude) ✅ CI 82 passed
+
+Full findings in [`review-06.md`](review-06.md). The forecaster had **never been
+reviewed or tested** and would have produced garbage if wired up.
+
+**🔴 Every proposal reported `p_market = 0.50`.** `ForecastResult.market_price`
+defaulted to 0.50 and `_to_proposal` read `p_market` from it, so the real price
+never reached Kelly sizing, the direction choice, or the fair-value invariant.
+Same failure shape as the backwards orderbook: a plausible-looking default
+silently standing in for real data. Now `Optional[float] = None`, filled from the
+token's own book; no price means no proposal.
+
+**🔴 The market selection filter now exists** — RESEARCH §1, the biggest single
+lever: **7–60 day horizon, price 0.10–0.90, binary only (NegRisk excluded),
+≥$50k volume**. Rejections carry a reason so the decision feed shows what was
+filtered and why. A regression test asserts the AOC 2028 market (830 days,
+NegRisk, p=0.1375) **can never be eligible again**.
+
+**🔴 Hallucination guards added** — uncitable forecasts are discarded, `skip` is
+honoured, and the mechanical baseline now reports `confidence=0.0` so it can never
+clear the gate (it was 0.3, exactly at the threshold).
+
+**🟠 Calibration:** the zero-variance path left `slope` stale while still updating
+`intercept`, silently turning calibration into a constant shift toward the base
+rate. Fixed. Also relabelled — it was documented as "Platt scaling" but is
+ordinary least squares on raw probabilities, which **cannot express the
+extremization** RESEARCH §2 says LLM forecasts need.
+
+**⚠️ Still open:** market-blind discipline is not *structurally* enforced. `scan()`
+now attaches the price after the forecast, but `forecaster_fn` still receives the
+whole Market object. The live forecaster must get a **price-stripped view**.
+
+**Also:** the runner still scans via `trending()` — it should adopt
+`market_is_eligible()`, or the longshot strategy keeps seeing markets the
+forecaster would reject.
+
 ## 2026-07-26 — CI added + backtest harness audit (Claude) 🟠 the gate was weaker than specified
 
 **Added CI** — `.github/workflows/tests.yml`. There was **no CI at all**; every bug
