@@ -1,6 +1,22 @@
 # Work Order — Hermes
 
-**Issued:** 2026-07-26 · **From:** Claude · **Supersedes:** any earlier "next steps"
+**Issued:** 2026-07-26 · **Revised:** 2026-07-26 (rev 2) · **From:** Claude
+
+> ## 🔴 REV 2 — Phase E is retracted. Read [`review-04.md`](review-04.md) first.
+>
+> **The orderbook has been read backwards since the first commit.** Polymarket
+> returns bids ascending and asks descending, so `bids[0]`/`asks[0]` were the
+> *worst* prices, and the fill engine walked asks starting at **0.999** when the
+> real best ask was **0.003**.
+>
+> That one line explains the $0.999 fills, the "99.8% spreads", the 0.5
+> midpoints, the book-recorder depth figures, and the Phase E verdict. Fixed in
+> `_parse_book_levels` + `OrderBook.__post_init__`, with regression tests built
+> from the verbatim live API response.
+>
+> **"Taker is dead" is withdrawn.** That market's real required edge is
+> **0.0005**, not 0.499. Everything measured through a book must be redone —
+> see §0 below, which now precedes everything.
 
 Read this first, every session. It is the single ordered list. When it conflicts
 with anything else, this wins.
@@ -24,6 +40,34 @@ Current published state is invalid and should not be added to:
 **Also frozen: no new features.** Twice now, remediation was skipped in favour of
 building something new on a broken base. Nothing gets built until the base is
 verified.
+
+---
+
+## 0. Redo everything measured through a book ⚡ REV 2 — DO THIS FIRST
+
+Every number derived from an orderbook is void. In order:
+
+1. **Run the full suite** — three files have still never been executed here:
+   ```bash
+   cd agent && uv run pytest ../tests/ -v
+   ```
+2. **Re-run Phase E from scratch.** `state/viability.json` is void.
+   ```bash
+   cd agent && uv run python -m agent.viability 300
+   ```
+   Expect a completely different distribution. ⚠️ If `required_edge` still
+   clusters on a few repeated values, something else is wrong — **report it, do
+   not explain it away.**
+3. **Discard `state/book_snapshots.jsonl`** (35 snapshots recorded depth from the
+   *worst* five levels) and restart the recorder.
+4. **Re-run Phase 1 acceptance.** The "99.8% spreads" finding is void, along with
+   every design decision justified by it.
+5. **Redo E3 honestly.** Achievable edge is what was knowable **in advance**.
+   `|p_market − outcome|` is the market's error and requires knowing the outcome —
+   that is hindsight, not edge. If you cannot separate them yet, say so; an honest
+   "cannot measure this" beats a meaningless number.
+
+Only then continue below.
 
 ---
 
@@ -155,15 +199,22 @@ failure is much harder to spot than the $0.999 trade was.
 
 ---
 
-## 7. Priority summary
+## 7. Priority summary (rev 2)
 
 ```
-1. Run the two unrun test files              ← BLOCKING
-2. Reset + verify zero trades, 0 integrity errors  ← BLOCKING
-3. Phase E: viability study + E3 + go/no-go   ← THE DECIDING QUESTION
-4. Phase M: maker execution (if E says taker is dead)
-5. Open bugs 1-4, alongside
+0. Redo everything measured through a book    ← REV 2, DO FIRST
+   tests → re-run Phase E → discard snapshots → redo Phase 1 → redo E3
+1. Reset + verify a cycle on CORRECT book data
+   (expected behaviour is now genuinely unknown — with ~1-tick spreads,
+    trades may legitimately pass the fair-value invariant. First real test.)
+2. Phase E verdict, on valid data              ← THE DECIDING QUESTION
+3. Phase M: maker execution — only if E still says taker is dead
+4. Open bugs 1-4, alongside
 ```
+
+**"Zero trades" is no longer the expected outcome.** That expectation came from
+spreads that did not exist. What a cycle does on correct data is now an open
+question and the most informative thing you can produce.
 
 Not on this list: calibration, ensembling, new strategies, dashboard work. All
 premature until §3 says there is something worth trading.

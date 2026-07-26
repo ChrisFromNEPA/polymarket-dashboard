@@ -144,8 +144,8 @@ class PolymarketClient:
         data = await self._get(f"{CLOB}/book?token_id={token_id}")
         return OrderBook(
             token_id=token_id,
-            bids=_parse_book_levels(data.get("bids", [])),
-            asks=_parse_book_levels(data.get("asks", [])),
+            bids=_parse_book_levels(data.get("bids", []), "bids"),
+            asks=_parse_book_levels(data.get("asks", []), "asks"),
             last_trade_price=(
                 float(data["last_trade_price"])
                 if data.get("last_trade_price")
@@ -250,13 +250,31 @@ def _parse_market(raw: dict) -> Market:
     )
 
 
-def _parse_book_levels(raw_levels: list[dict]) -> list[BookLevel]:
-    """Parse raw orderbook levels."""
-    return [
+def _parse_book_levels(raw_levels: list[dict], side: str) -> list[BookLevel]:
+    """Parse raw orderbook levels into BEST-FIRST order.
+
+    ⚠️ Polymarket's /book returns levels WORST-FIRST:
+        bids ascending  — bids[0] is the LOWEST bid
+        asks descending — asks[0] is the HIGHEST ask
+
+    Reading index 0 as "best" therefore picks the worst price on both sides.
+    That single mistake produced essentially every bad result in this project:
+    the $0.999 fills (the fill engine walked asks starting at 0.999 when the
+    real best ask was 0.003), the "99.8% spread on 100% of markets" finding
+    (0.999 − 0.001), the 0.5 midpoints (their mean), and the Phase E verdict
+    that taker execution was dead.
+
+    We sort defensively rather than trusting the API's order, so this holds
+    even if Polymarket changes it:
+        bids → descending (best/highest first)
+        asks → ascending  (best/lowest first)
+    """
+    levels = [
         BookLevel(price=float(lvl["price"]), size=float(lvl["size"]))
         for lvl in raw_levels
         if lvl.get("price") and lvl.get("size")
     ]
+    return sorted(levels, key=lambda l: l.price, reverse=(side == "bids"))
 
 
 async def _asleep(seconds: float):

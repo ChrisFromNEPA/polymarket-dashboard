@@ -20,13 +20,29 @@ class BookLevel:
 
 @dataclass
 class OrderBook:
-    """Full orderbook for a single outcome token."""
+    """Full orderbook for a single outcome token.
+
+    **Invariant: levels are always BEST-FIRST.**
+        bids — descending (highest/best bid at index 0)
+        asks — ascending  (lowest/best ask at index 0)
+
+    Enforced in __post_init__ rather than trusted to callers, because
+    Polymarket's API returns the opposite order (bids ascending, asks
+    descending) and reading index 0 as "best" silently picks the WORST price on
+    both sides. That one mistake caused the $0.999 fills, the phantom "99.8%
+    spreads", the 0.5 midpoints, and the Phase E "taker is dead" verdict.
+    Anything that walks these lists depends on this ordering.
+    """
     token_id: str
     bids: list[BookLevel] = field(default_factory=list)
     asks: list[BookLevel] = field(default_factory=list)
     last_trade_price: Optional[float] = None
     tick_size: float = 0.01
     min_order_size: float = 5.0
+
+    def __post_init__(self):
+        self.bids = sorted(self.bids, key=lambda l: l.price, reverse=True)
+        self.asks = sorted(self.asks, key=lambda l: l.price)
 
     @property
     def best_bid(self) -> Optional[float]:

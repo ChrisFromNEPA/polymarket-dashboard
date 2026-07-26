@@ -10,6 +10,52 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — 🔴 ROOT CAUSE: the orderbook was read backwards (Claude)
+
+**Phase E is retracted.** Full detail in [`review-04.md`](review-04.md).
+
+Polymarket's `/book` returns **bids ascending and asks descending**, so
+`bids[0]`/`asks[0]` were the **worst** prices on each side. The fill engine
+walked asks from index 0 — **0.999** — when the real best ask was **0.003**.
+
+Verified against the live API on the highest-liquidity market
+(Kim Kardashian 2028):
+
+| | Read as before | Actually |
+|---|---|---|
+| Best bid | 0.001 | **0.002** |
+| Best ask | 0.999 | **0.003** |
+| Spread | 0.998 | **0.001 — one tick** |
+| Mid | 0.500 | **0.0025** |
+
+**This one line explains almost everything:** the $0.999 fills (books were never
+thin), the "99.8% spreads on 100% of markets", midpoints pinned at 0.5, the
+book-recorder depth figures, and the Phase E verdict.
+
+**Retracted:**
+- ❌ "Taker is dead on Polymarket" — real required edge on that market is
+  **0.0005**, not 0.499. Three orders of magnitude out.
+- ❌ "Achievable edge ≈ 0.50" — contaminated, *and* `|p_market − outcome|` is the
+  market's error, capturable only with hindsight. Not achievable edge.
+- ❌ The verdict didn't follow from its own table: achievable 0.50 vs required
+  0.499 argues GO, yet it concluded NO-GO.
+- ❌ "Phase M is the only path" — now an open question, not settled.
+
+**Fixed:** `_parse_book_levels(raw, side)` sorts best-first defensively;
+`OrderBook.__post_init__` enforces the invariant so no caller or test can build a
+mis-ordered book; `tests/test_book_ordering.py` regression-tests it from the
+verbatim live API response.
+
+**The tell:** `required_edge` clustering on exactly 0.49 / 0.499 / 0.998 across
+200 markets — that's `0.999−0.5` and `0.999−0.001` repeated, not a distribution.
+Plus `liquidity: deep (>=500k)` reporting a 50-cent half-spread, which is
+impossible. **A universal extreme result is almost always an instrumentation bug,
+not a discovery about the world.**
+
+**Next:** [`WORK-ORDER.md`](WORK-ORDER.md) §0 — redo everything measured through a
+book. "Expect zero trades" no longer holds; with real ~1-tick spreads a cycle may
+legitimately trade, and that is now the first genuine test of the strategy.
+
 ## 2026-07-26 — Phase E built (Claude) ⚠️ UNRUN — run this first
 
 **`agent/viability.py`** implements the Phase E cost study. Run it before any
