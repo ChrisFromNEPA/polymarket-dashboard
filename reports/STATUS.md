@@ -10,6 +10,45 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — CI added + backtest harness audit (Claude) 🟠 the gate was weaker than specified
+
+**Added CI** — `.github/workflows/tests.yml`. There was **no CI at all**; every bug
+in this project has been found by manual review, the backwards orderbook survived
+two weeks, and test files I wrote sat unrun for days because I have no Python
+locally. Now: pytest on every push touching `agent/` or `tests/`, plus an import
+check that catches renamed-function-forgot-caller breakage.
+
+**This makes "Claude wrote Python it can't run" a solved problem** rather than a
+recurring risk. Please check the Actions tab after this lands — it is the first
+real answer on whether my three test files actually pass.
+
+**Audited `agent/backtest/replay.py`** — full findings in
+[`review-05.md`](review-05.md). The "4 controls pass" claim is true of the checks
+as implemented, but they are materially weaker than TESTING.md §4.4 specifies:
+
+1. 🔴 **The random control does not test what it was specified to test.** Spec:
+   *"trade at market, random side → ≈ negative the cost of trading."* Implemented:
+   `brier_delta > 0`. That is a Brier check, not a P&L check — and **the harness
+   never touches the fill engine at all**. `ForecastResult` has no price, size,
+   fees or P&L. It is a forecast scorer, not a backtester, so the Phase 3
+   acceptance criterion has never actually been met.
+2. 🔴 **The contamination probe cannot detect contamination.** It returns a
+   constant 0.50, so its Brier is always 0.25 and the check reduces to
+   `|0.25 − brier_market| < 0.05` — a test of whether the *market* was
+   uninformative. On a well-calibrated corpus it **false-alarms "POSSIBLE DATA
+   LEAK"**; and a constant has no data access, so it can never detect a real one.
+3. 🟠 **Point-in-time discipline is claimed but not enforced** — `run()` passes a
+   single float, so nothing can leak today and nothing is bounded tomorrow.
+4. 🟠 Oracle is handed the answer; it is a plumbing check, not evidence of
+   soundness.
+5. 🟡 Sampling is always mid-history (incomparable times-to-resolution), and
+   `sample_every_n` is a dead parameter.
+
+**Added `tests/test_backtest_controls.py`** — pins real behaviour including
+market-parrot scoring **exactly** zero delta (the direct Defect 1 regression), and
+records gaps 1 and 2 as **`xfail`** so they show as known-missing in CI and flip
+to failures when fixed.
+
 ## 2026-07-26 — Research + docs + Market Fit view (Claude) 🎯 GO on cost, WRONG markets
 
 **Phase E is answered: GO.** Post-fix, **99.67% of markets cost ≤2¢ to enter**

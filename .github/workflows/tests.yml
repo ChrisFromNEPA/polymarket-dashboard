@@ -1,0 +1,99 @@
+name: tests
+
+# Every bug in this project so far was found by manual review. This runs the
+# suite automatically so untested code cannot sit in main unnoticed — the
+# specific failure mode here has been Claude authoring Python it cannot execute
+# locally (no Python on that machine) and the tests going unrun for days.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/**'
+      - 'tests/**'
+      - '.github/workflows/tests.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        working-directory: agent
+        run: uv sync --all-extras
+
+      - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          cd agent
+          uv run pytest ../tests -v --tb=short --junitxml=../test-results.xml
+
+      - name: Publish results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Cheap structural checks that do not need the full environment. These catch
+  # the "renamed a function and forgot a caller" class of breakage.
+  imports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv python install 3.12
+
+      - name: Install dependencies
+        working-directory: agent
+        run: uv sync --all-extras
+
+      - name: Every module must import cleanly
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        working-directory: agent
+        run: |
+          uv run python - <<'PY'
+          import importlib, pkgutil, sys, pathlib
+
+          root = pathlib.Path("..").resolve()
+          sys.path.insert(0, str(root))
+
+          failed = []
+          for mod in pkgutil.walk_packages([str(root / "agent")], prefix="agent."):
+              name = mod.name
+              # mcp_server may require an optional MCP SDK; skip if absent.
+              try:
+                  importlib.import_module(name)
+                  print(f"ok    {name}")
+              except ModuleNotFoundError as e:
+                  print(f"SKIP  {name} (missing optional dep: {e.name})")
+              except Exception as e:
+                  print(f"FAIL  {name}: {type(e).__name__}: {e}")
+                  failed.append((name, e))
+
+          if failed:
+              print(f"\n{len(failed)} module(s) failed to import")
+              sys.exit(1)
+          print("\nall modules import cleanly")
+          PY
