@@ -1,1 +1,26 @@
-{"status": "reset", "total_cycles": 0, "total_proposals": 0, "total_approved": 0, "total_trades": 0, "current_cash": 10000, "starting_cash": 10000, "total_pnl": 0, "open_positions": 0, "total_trade_count": 0, "strategy": "favorite-longshot", "brier_agent": null, "brier_market": null}
+{
+  "n_resolved": 0,
+  "brier_agent": null,
+  "brier_market": null,
+  "brier_delta": null,
+  "brier_delta_ci95": null,
+  "verdict": "no_detectable_edge",
+  "ece": null,
+  "by_strategy": {},
+  "benchmarks": {
+    "always_favorite": null,
+    "market_parrot": null
+  },
+  "total_cycles": 1,
+  "total_proposals": 4,
+  "total_approved": 4,
+  "total_trades": 4,
+  "approval_rate": 1.0,
+  "current_cash": 7823.179,
+  "starting_cash": 10000,
+  "total_pnl": -2176.821,
+  "open_positions": 4,
+  "total_trade_count": 4,
+  "strategy": "favorite-longshot",
+  "updated_at": "2026-07-26T06:08:09.274611+00:00"
+}

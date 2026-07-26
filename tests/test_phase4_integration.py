@@ -80,14 +80,14 @@ async def test_agent_full_cycle_live():
     print(f"\nScorecard: {json.dumps(scorecard, indent=2)}")
 
     # Portfolio snapshot
-    snapshot = agent.get_portfolio_snapshot()
+    snapshot = await agent.get_portfolio_snapshot()
     assert snapshot["cash"] == result.cash
     print(f"\nPortfolio: cash=${snapshot['cash']:.2f}, positions={len(snapshot['positions'])}")
 
     # Publisher
     with tempfile.TemporaryDirectory() as tmpdir:
         pub = Publisher(state_dir=tmpdir)
-        files = pub.publish_all(agent)
+        files = await pub.publish_all(agent)
         assert len(files) >= 2, f"Should publish at least 2 files, got {len(files)}"
         for f in files:
             assert Path(f).exists(), f"File should exist: {f}"

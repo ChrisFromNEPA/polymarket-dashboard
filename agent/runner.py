@@ -279,27 +279,55 @@ class AutonomousAgent:
             "brier_market": None,
         }
 
-    def get_portfolio_snapshot(self) -> dict:
-        """Current portfolio state for publishing."""
+    async def get_portfolio_snapshot(self) -> dict:
+        """Current portfolio state with live marks and total_equity."""
+        # Fetch marks for all positions
+        marks = {}
+        positions_value = 0.0
+        position_list = []
+
+        for key, pos in self.portfolio.positions.items():
+            mark = pos.avg_entry_price  # default to cost
+            try:
+                mark = await self.client.get_midpoint(pos.token_id)
+            except Exception:
+                pass
+            marks[key] = mark
+            unrealized = pos.shares * mark - pos.cost_basis
+            positions_value += pos.shares * mark
+
+            position_list.append({
+                "token_id": pos.token_id,
+                "outcome": pos.outcome,
+                "shares": pos.shares,
+                "avg_entry_price": pos.avg_entry_price,
+                "mark_price": mark,
+                "unrealized_pnl": unrealized,
+                "cost_basis": pos.cost_basis,
+                "market_question": pos.market_question,
+                "condition_id": pos.condition_id,
+                "opened_at": pos.opened_at,
+                "fair_estimate": pos.fair_estimate_at_entry,
+                "strategy": pos.strategy_name,
+                "overpaid": (
+                    mark < pos.fair_estimate_at_entry
+                    if pos.outcome == "Yes" and pos.fair_estimate_at_entry > 0
+                    else (mark < (1.0 - pos.fair_estimate_at_entry)
+                          if pos.outcome == "No" and pos.fair_estimate_at_entry > 0
+                          else False)
+                ),
+            })
+
+        total_equity = self.portfolio.cash + positions_value
+
         return {
             "cash": self.portfolio.cash,
             "starting_cash": self.portfolio.starting_cash,
-            "pnl": self.portfolio.cash - self.portfolio.starting_cash,
-            "pnl_pct": (self.portfolio.cash / self.portfolio.starting_cash - 1) * 100,
-            "positions": [
-                {
-                    "token_id": pos.token_id,
-                    "outcome": pos.outcome,
-                    "shares": pos.shares,
-                    "avg_entry_price": pos.avg_entry_price,
-                    "market_question": pos.market_question,
-                    "condition_id": pos.condition_id,
-                    "opened_at": pos.opened_at,
-                    "fair_estimate": pos.fair_estimate_at_entry,
-                    "strategy": pos.strategy_name,
-                }
-                for pos in self.portfolio.positions.values()
-            ],
+            "positions_value": positions_value,
+            "total_equity": total_equity,
+            "pnl": total_equity - self.portfolio.starting_cash,
+            "pnl_pct": (total_equity / self.portfolio.starting_cash - 1) * 100,
+            "positions": position_list,
             "recent_trades": [
                 {
                     "time": t.time,
@@ -310,7 +338,7 @@ class AutonomousAgent:
                     "cost": t.cost,
                     "market_question": t.market_question,
                 }
-                for t in self.portfolio.trades[-20:]  # last 20
+                for t in self.portfolio.trades[-20:]
             ],
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }

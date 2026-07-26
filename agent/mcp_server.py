@@ -63,7 +63,7 @@ async def tool_run_cycle(max_markets: int = 100) -> dict:
 
     # Publish state
     pub = get_publisher()
-    pub.publish_all(agent)
+    await pub.publish_all(agent, _run_history[-5:])
     pub.publish_decisions(agent.get_decisions_log(_run_history[-5:]))
     pub.publish_scorecard(agent.get_scorecard(_run_history[-20:]))
 

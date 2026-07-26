@@ -1,1 +1,65 @@
-{"updated_at": "2026-07-26T00:00:00Z", "decisions": []}
+{
+  "updated_at": "2026-07-26T06:08:09.274519+00:00",
+  "decisions": [
+    {
+      "time": "2026-07-26T06:07:52.612451+00:00",
+      "market": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
+      "direction": "BUY",
+      "outcome": "No",
+      "p_market": 0.1375,
+      "p_agent": 0.08750000000000001,
+      "strategy": "favorite-longshot",
+      "approved": true,
+      "sized_shares": 580,
+      "risk_reason": "Approved: 580 shares at 25%-Kelly (full Kelly = 0.3636)",
+      "filled": true,
+      "fill_price": 0.9989999999999999,
+      "error": ""
+    },
+    {
+      "time": "2026-07-26T06:07:52.612451+00:00",
+      "market": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
+      "direction": "BUY",
+      "outcome": "No",
+      "p_market": 0.0515,
+      "p_agent": 0.01,
+      "strategy": "favorite-longshot",
+      "approved": true,
+      "sized_shares": 527,
+      "risk_reason": "Approved: 527 shares at 25%-Kelly (full Kelly = 0.8058)",
+      "filled": true,
+      "fill_price": 0.9989999999999999,
+      "error": ""
+    },
+    {
+      "time": "2026-07-26T06:07:52.612451+00:00",
+      "market": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
+      "direction": "BUY",
+      "outcome": "No",
+      "p_market": 0.0505,
+      "p_agent": 0.01,
+      "strategy": "favorite-longshot",
+      "approved": true,
+      "sized_shares": 527,
+      "risk_reason": "Approved: 527 shares at 25%-Kelly (full Kelly = 0.8020)",
+      "filled": true,
+      "fill_price": 0.9989999999999999,
+      "error": ""
+    },
+    {
+      "time": "2026-07-26T06:07:52.612451+00:00",
+      "market": "Will Kamala Harris win the 2028 Democratic presidential nomination?",
+      "direction": "BUY",
+      "outcome": "No",
+      "p_market": 0.0825,
+      "p_agent": 0.0325,
+      "strategy": "favorite-longshot",
+      "approved": true,
+      "sized_shares": 545,
+      "risk_reason": "Approved: 545 shares at 25%-Kelly (full Kelly = 0.6061)",
+      "filled": true,
+      "fill_price": 0.9990000000000001,
+      "error": ""
+    }
+  ]
+}
