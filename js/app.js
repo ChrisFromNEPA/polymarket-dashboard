@@ -6,6 +6,7 @@
     decisions: DecisionsView,
     positions: PositionsView,
     resolutions: ResolutionsView,
+    integrity: IntegrityView,
   };
 
   let current = 'verdict';

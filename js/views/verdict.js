@@ -21,12 +21,29 @@ const VerdictView = (() => {
     const sc = d.scorecard || {};
     const n = sc.n_resolved;
 
-    let html = gapsBanner(d);
+    let html = integrityBanner(d);
+    html += gapsBanner(d);
     html += heroCard(sc, n, f);
     html += healthStrip(d, f);
     html += benchmarks(sc, f);
     html += notes(n);
     return html;
+  }
+
+  // Contradictions between published files outrank everything else on this page:
+  // if the numbers disagree with each other, no verdict below them means anything.
+  function integrityBanner(d) {
+    const issues = Integrity.check(d);
+    const c = Integrity.counts(issues);
+    if (!c.errors) return '';
+    let html = '<div class="banner banner-bad"><strong>' + c.errors +
+      ' integrity error' + (c.errors === 1 ? '' : 's') + ' — treat the numbers below as unreliable</strong>' +
+      '<ul>';
+    issues.filter(i => i.severity === 'error').slice(0, 3).forEach(i => {
+      html += '<li>' + Data.esc(i.title) + '</li>';
+    });
+    if (c.errors > 3) html += '<li>…and ' + (c.errors - 3) + ' more</li>';
+    return html + '</ul><div class="banner-sub">See the <strong>Integrity</strong> tab for detail.</div></div>';
   }
 
   function gapsBanner(d) {

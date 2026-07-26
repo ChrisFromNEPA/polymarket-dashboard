@@ -201,6 +201,18 @@ code { font-family: var(--mono); font-size: .9em; background: var(--panel-2);
 .d-reasoning summary { cursor: pointer; color: var(--accent); font-size: .82rem; }
 .d-reasoning div { margin-top: 7px; color: #c3cdde; white-space: pre-wrap; }
 
+/* ── Integrity issues ───────────────────────────────────── */
+.issue {
+  border: 1px solid var(--border); border-left-width: 3px;
+  border-radius: 8px; padding: 12px 14px; margin-bottom: 9px; background: var(--panel-2);
+}
+.issue-error { border-left-color: var(--bad); }
+.issue-warn { border-left-color: var(--warn); }
+.issue-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.issue-title { font-weight: 600; font-size: .92rem; }
+.issue-detail { font-family: var(--mono); font-size: .82rem; color: #c3cdde; line-height: 1.6; }
+.issue-fix { margin-top: 7px; font-size: .84rem; color: var(--muted); }
+
 /* ── Charts ─────────────────────────────────────────────── */
 .chart { width: 100%; height: auto; display: block; }
 .chart-square { max-width: 340px; margin: 0 auto; }
