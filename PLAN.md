@@ -331,16 +331,24 @@ uncalibrated. Report reliability diagrams before/after. This is the phase most
 likely to determine whether the project succeeds.
 
 ### Phase 8 — Autonomy, publishing, dashboard
+
+📄 **Dashboard design: [`docs/DASHBOARD.md`](docs/DASHBOARD.md) — read before starting.**
+
 - MCP tools + Hermes cron loop (4-hourly default).
-- `state/`: `portfolio.json`, `trades.jsonl`, `decisions.json` (**including
-  rejected trades and why**), `equity.json`, `scorecard.json`, `calibration.json`.
+- `state/`: `meta.json`, `scorecard.json`, `calibration.json`, `resolutions.json`,
+  `portfolio.json`, `equity.json`, `decisions.json` (**including rejected trades
+  and why**), `trades.jsonl`. Full schema contract in DASHBOARD.md §4 — **agree it
+  before writing UI code.**
 - Scheduled GitHub Action re-marks the portfolio every ~15 min so the dashboard
   stays live when Hermes is idle.
-- Dashboard as observability: equity curve, positions, **decision feed with
-  reasoning**, reliability diagram, Brier-vs-market scoreboard.
+- Rebuild the UI as an experiment instrument, not a trading terminal: **Brier
+  delta is the hero number, P&L is demoted**; delete the manual localStorage
+  trading UI and the arbitrage scanner tab (false-positive generators, §3.1–3.3).
 
 **Acceptance:** a full unattended cycle end-to-end; dashboard renders from
-committed JSON with no CORS errors.
+committed JSON with no CORS errors; exactly one portfolio in the UI; a confidence
+interval crossing zero renders "no detectable edge yet" rather than a green
+number.
 
 ### Phase 9 — Long-run operation
 - Weekly auto-generated report: Brier vs. market, ECE, P&L by strategy, drawdown.

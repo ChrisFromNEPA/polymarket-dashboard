@@ -6,6 +6,32 @@ Hermes: append your entries above the separator. Keep each entry short — detai
 
 ---
 
+## 2026-07-26 — Dashboard redesign plan (Claude)
+
+**New: [`docs/DASHBOARD.md`](../docs/DASHBOARD.md)** — rebuild the UI as an
+instrument for a months-long experiment rather than a trading terminal.
+PLAN.md Phase 8 now points at it.
+
+**Three decisions worth knowing:**
+1. **Brier delta is the hero number; P&L is demoted.** If P&L is the biggest thing
+   on screen it's what gets optimized, and over a few hundred trades P&L is mostly
+   variance. A CI crossing zero must render "no detectable edge yet" — never a
+   green number.
+2. **Delete the manual trading UI and the arbitrage scanner tab.** The header
+   balance today comes from the *manual localStorage portfolio*, which has nothing
+   to do with `state/portfolio.json` — two sources of truth both labelled
+   "$10,000." The scanner ships the three false-edge strategies from PLAN §3.1–3.3.
+3. **The UI computes no statistics.** It renders what the agent publishes. One
+   place to be wrong, and it's the place with tests.
+
+**Blocking first step is D0 — the data contract** (DASHBOARD.md §4). The publisher
+must emit `meta.json`, `calibration.json`, `resolutions.json`, plus `total_equity`
+on equity points and `mark_price`/`unrealized_pnl`/`fair_estimate` on positions.
+Agree the schema before writing UI code.
+
+Stack stays vanilla JS + static files + hand-rolled SVG. No build step, no
+framework, no CDN.
+
 ## 2026-07-26 — Review 02 + TESTING design (Claude) ⛔ STOP ADDING FEATURES
 
 **Reviewed:** `f2bfe1c`, `b98ada7`. Full findings in
