@@ -80,6 +80,8 @@ class PortfolioEngine:
         price: float,
         market_question: str = "",
         condition_id: str = "",
+        fair_estimate_at_entry: float = 0.0,
+        strategy_name: str = "",
     ) -> Position:
         """Add to an existing position or create a new one.
 
@@ -96,6 +98,11 @@ class PortfolioEngine:
                 (pos.avg_entry_price * pos.shares + price * shares) / total_shares
             )
             pos.shares = total_shares
+            # Update fair estimate to the newest one if provided
+            if fair_estimate_at_entry > 0:
+                pos.fair_estimate_at_entry = fair_estimate_at_entry
+            if strategy_name:
+                pos.strategy_name = strategy_name
         else:
             pos = Position(
                 token_id=token_id,
@@ -104,6 +111,8 @@ class PortfolioEngine:
                 avg_entry_price=price,
                 market_question=market_question,
                 condition_id=condition_id,
+                fair_estimate_at_entry=fair_estimate_at_entry,
+                strategy_name=strategy_name,
             )
             self.positions[key] = pos
 

@@ -167,14 +167,9 @@ class AutonomousAgent:
                         price=fill.avg_price,
                         market_question=proposal.market_question,
                         condition_id=proposal.condition_id,
+                        fair_estimate_at_entry=proposal.agent_probability,
+                        strategy_name=proposal.strategy_name,
                     )
-                    # Store fair estimate on the position for edge-gone detection
-                    key = f"{actual_token}:{actual_outcome}"
-                    if key in self.portfolio.positions:
-                        self.portfolio.positions[key].fair_estimate_at_entry = (
-                            proposal.agent_probability
-                        )
-                        self.portfolio.positions[key].strategy_name = proposal.strategy_name
 
                     decision.filled = True
                     decision.fill_price = fill.avg_price
