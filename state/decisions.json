@@ -1,8 +1,8 @@
 {
-  "updated_at": "2026-07-26T14:48:20.300342+00:00",
+  "updated_at": "2026-07-26T15:07:05.611349+00:00",
   "decisions": [
     {
-      "time": "2026-07-26T14:48:04.621281+00:00",
+      "time": "2026-07-26T15:06:49.735073+00:00",
       "market": "Will Alexandria Ocasio-Cortez win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -11,13 +11,13 @@
       "strategy": "favorite-longshot",
       "approved": false,
       "sized_shares": 580.0,
-      "risk_reason": "Execution price $0.9990 exceeds fair value $0.9125 for No ($50.17 lost at entry). Paying above your own estimate is never justified.",
+      "risk_reason": "Actual cost $501.99 exceeds 5% position cap ($500.00) at the real fill price",
       "filled": false,
       "fill_price": 0.0,
-      "error": "Execution price $0.9990 exceeds fair value $0.9125 for No ($50.17 lost at entry). Paying above your own estimate is never justified."
+      "error": "Actual cost $501.99 exceeds 5% position cap ($500.00) at the real fill price"
     },
     {
-      "time": "2026-07-26T14:48:04.621281+00:00",
+      "time": "2026-07-26T15:06:49.735073+00:00",
       "market": "Will Pete Buttigieg win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -26,13 +26,13 @@
       "strategy": "favorite-longshot",
       "approved": false,
       "sized_shares": 527.0,
-      "risk_reason": "Execution price $0.9990 exceeds fair value $0.9900 for No ($4.74 lost at entry). Paying above your own estimate is never justified.",
+      "risk_reason": "Actual cost $500.12 exceeds 5% position cap ($500.00) at the real fill price",
       "filled": false,
       "fill_price": 0.0,
-      "error": "Execution price $0.9990 exceeds fair value $0.9900 for No ($4.74 lost at entry). Paying above your own estimate is never justified."
+      "error": "Actual cost $500.12 exceeds 5% position cap ($500.00) at the real fill price"
     },
     {
-      "time": "2026-07-26T14:48:04.621281+00:00",
+      "time": "2026-07-26T15:06:49.735073+00:00",
       "market": "Will Josh Shapiro win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -41,13 +41,13 @@
       "strategy": "favorite-longshot",
       "approved": false,
       "sized_shares": 527.0,
-      "risk_reason": "Execution price $0.9990 exceeds fair value $0.9900 for No ($4.74 lost at entry). Paying above your own estimate is never justified.",
+      "risk_reason": "Actual cost $500.65 exceeds 5% position cap ($500.00) at the real fill price",
       "filled": false,
       "fill_price": 0.0,
-      "error": "Execution price $0.9990 exceeds fair value $0.9900 for No ($4.74 lost at entry). Paying above your own estimate is never justified."
+      "error": "Actual cost $500.65 exceeds 5% position cap ($500.00) at the real fill price"
     },
     {
-      "time": "2026-07-26T14:48:04.621281+00:00",
+      "time": "2026-07-26T15:06:49.735073+00:00",
       "market": "Will Kamala Harris win the 2028 Democratic presidential nomination?",
       "direction": "BUY",
       "outcome": "No",
@@ -56,10 +56,10 @@
       "strategy": "favorite-longshot",
       "approved": false,
       "sized_shares": 545.0,
-      "risk_reason": "Execution price $0.9990 exceeds fair value $0.9670 for No ($17.44 lost at entry). Paying above your own estimate is never justified.",
+      "risk_reason": "Actual cost $500.77 exceeds 5% position cap ($500.00) at the real fill price",
       "filled": false,
       "fill_price": 0.0,
-      "error": "Execution price $0.9990 exceeds fair value $0.9670 for No ($17.44 lost at entry). Paying above your own estimate is never justified."
+      "error": "Actual cost $500.77 exceeds 5% position cap ($500.00) at the real fill price"
     }
   ]
 }
