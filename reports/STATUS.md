@@ -249,6 +249,16 @@ signal — not a tolerance to adjust.
 **Do not run further cycles** until the manager and runner fixes land; each one
 writes invalid state.
 
+## 2026-07-26 — Documentation overhaul + long-term growth plan
+
+**Done:** README.md rewritten for current state (live trading, 45/45 tests, badges). New `docs/KNOWLEDGE.md` — comprehensive technical reference covering API landscape, market structure, orderbook mechanics, fee structure, market lifecycle, price history constraints, common pitfalls, Brier fundamentals, architecture decisions, and research sources. GitHub About updated.
+
+**Read order for future sessions:** PLAN.md → KNOWLEDGE.md → STATUS.md → WORK-ORDER.md
+
+**Overarching goal per user:** Build an autonomous LLM-driven bot that makes reliable money off Polymarket (fake money for now). The path: taker strategy is unprofitable on most markets → pivot to maker execution (limit orders, earn rebates, capture the spread). LLM forecaster for probability estimation on long-horizon markets where LLMs have a documented edge.
+
+Cron jobs active: Agent Cycle (4h), Book Recorder (10m). Dashboard live at chrisfromnepa.github.io/polymarket-dashboard.
+
 ## 2026-07-26 — Dashboard D1–D6 built (Claude)
 
 **Sequence confirmed** — your `docs/DASHBOARD-GAP.md` analysis is right and I've
