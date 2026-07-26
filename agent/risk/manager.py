@@ -42,15 +42,18 @@ class RiskManager:
 
     # ── Main evaluation ──────────────────────────────────────
 
-    def evaluate(self, proposal: TradeProposal) -> RiskDecision:
+    def evaluate(self, proposal: TradeProposal, marks: dict[str, float] = None) -> RiskDecision:
         """Full risk evaluation for a trade proposal.
 
         Returns a RiskDecision with approval status, sizing, and reasoning.
+        marks: current marks for existing positions (for proper equity calc).
         """
         warnings = []
+        if marks is None:
+            marks = {}
 
-        # ── Circuit breaker: drawdown check ──
-        current_equity = self.portfolio.cash  # simplified — no marks needed
+        # ── True equity (Defect 3 fix) ──
+        current_equity = self.portfolio.get_total_equity(marks)
         drawdown = 1.0 - (current_equity / self.portfolio.starting_cash)
         if drawdown >= self.CIRCUIT_BREAKER_DRAWDOWN:
             return RiskDecision(
@@ -133,6 +136,35 @@ class RiskManager:
                 approved=False,
                 proposal=proposal,
                 reason=f"Size {sized_shares:.2f} shares below minimum {self.MIN_SHARES}",
+                sized_shares=sized_shares,
+                kelly_fraction=kelly,
+            )
+
+        # ── Invariant: reject if execution price > fair value ──
+        # (from review-02: \"Reject any trade where execution_price is worse than fair_value\")
+        fair_value = (
+            proposal.agent_probability if proposal.outcome == "Yes"
+            else 1.0 - proposal.agent_probability
+        )
+        if proposal.direction == "BUY" and entry_price > fair_value:
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                reason=(
+                    f"Execution price (${entry_price:.4f}) exceeds fair value "
+                    f"(${fair_value:.4f}). Paying above your own estimate is never justified."
+                ),
+                sized_shares=sized_shares,
+                kelly_fraction=kelly,
+            )
+        if proposal.direction == "SELL" and entry_price < fair_value:
+            return RiskDecision(
+                approved=False,
+                proposal=proposal,
+                reason=(
+                    f"Execution price (${entry_price:.4f}) below fair value "
+                    f"(${fair_value:.4f}). Selling below your own estimate is never justified."
+                ),
                 sized_shares=sized_shares,
                 kelly_fraction=kelly,
             )

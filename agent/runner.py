@@ -54,12 +54,11 @@ class AutonomousAgent:
         self,
         client: PolymarketClient = None,
         portfolio: PortfolioEngine = None,
-        fill_mode: str = "realistic",
         starting_cash: float = 10_000.0,
     ):
         self.client = client or PolymarketClient()
         self.portfolio = portfolio or PortfolioEngine(starting_cash=starting_cash)
-        self.fill_engine = FillEngine(self.client, mode=fill_mode)
+        self.fill_engine = FillEngine(self.client)
         self.risk_manager = RiskManager(self.portfolio)
         self.strategy = FavoriteLongshotStrategy(self.client)
 

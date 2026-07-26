@@ -35,7 +35,7 @@ _publisher: Publisher = None
 def get_agent() -> AutonomousAgent:
     global _agent
     if _agent is None:
-        _agent = AutonomousAgent(fill_mode="realistic", starting_cash=10_000)
+        _agent = AutonomousAgent(starting_cash=10_000)
     return _agent
 
 
@@ -128,7 +128,7 @@ async def tool_reset_agent(starting_cash: float = 10_000.0) -> dict:
     global _agent, _run_history
     from agent.engine.portfolio import PortfolioEngine
 
-    _agent = AutonomousAgent(fill_mode="realistic", starting_cash=starting_cash)
+    _agent = AutonomousAgent(starting_cash=starting_cash)
     _run_history = []
 
     # Reset state files

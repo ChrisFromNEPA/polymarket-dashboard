@@ -30,7 +30,7 @@ async def test_agent_full_cycle_live():
     Uses realistic fills. Expects to find at least some markets and
     generate proposals (or report honestly if no opportunities exist).
     """
-    agent = AutonomousAgent(fill_mode="realistic", starting_cash=10_000)
+    agent = AutonomousAgent(starting_cash=10_000)
 
     # Run one cycle
     result = await agent.run_cycle(max_markets=50)

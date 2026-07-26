@@ -52,7 +52,7 @@ EMPTY_BOOK = make_book(bids=[], asks=[])
 async def test_depth_limits_prevent_overfill():
     """Buying more than book depth cannot fill entirely at top-of-book price."""
     client = PolymarketClient()
-    engine = FillEngine(client, mode="strict")
+    engine = FillEngine(client)
 
     # Book has 80 + 150 + 300 = 530 shares on the ask side
     # Request 1000 shares → should only fill 530
@@ -81,7 +81,7 @@ async def test_depth_limits_prevent_overfill():
 async def test_round_trip_loses_money():
     """An immediate buy-then-sell round trip loses money (pays spread twice)."""
     client = PolymarketClient()
-    engine = FillEngine(client, mode="strict")
+    engine = FillEngine(client)
     portfolio = PortfolioEngine(starting_cash=1000)
 
     token_id = "test_yes"
@@ -128,7 +128,7 @@ async def test_no_position_marked_from_own_book():
     where js/app.js marked NO positions at roughly the YES price.
     """
     client = PolymarketClient()
-    engine = FillEngine(client, mode="strict")
+    engine = FillEngine(client)
     portfolio = PortfolioEngine(starting_cash=1000)
 
     no_token_id = "test_no"
@@ -225,7 +225,7 @@ async def test_settlement_ties_out():
 async def test_empty_book_rejects_fills():
     """A market with an empty book should not fill."""
     client = PolymarketClient()
-    engine = FillEngine(client, mode="strict")
+    engine = FillEngine(client)
 
     result = await engine._market_order("empty_token", 100, "buy", EMPTY_BOOK)
     assert not result.filled, "Empty book should not fill"
@@ -246,7 +246,7 @@ def test_settlement_value_logic():
 async def test_portfolio_mark_no_uses_no_book():
     """get_best_bid for a NO token returns the NO book bid price."""
     client = PolymarketClient()
-    engine = FillEngine(client, mode="strict")
+    engine = FillEngine(client)
 
     # NO book: bids at 0.36, 0.35, 0.34; asks at 0.38, 0.39, 0.40
     no_bid = await engine.get_best_bid("test_no", TIGHT_NO_BOOK)

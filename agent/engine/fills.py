@@ -61,12 +61,20 @@ def calculate_fee(fee_rate_bps: int, price: float, cost: float) -> float:
 
 
 class FillEngine:
-    """Deterministic fill simulation — no randomness, no optimistic assumptions."""
+    """Deterministic fill simulation — strict book-walking only.
 
-    def __init__(self, client: PolymarketClient, fee_rate: float = 0.0, mode: str = "realistic"):
+    Walks the live orderbook level by level, consuming size at each price.
+    Never fills at mid. Never synthesizes liquidity. Never assumes a
+    \"better price would be available\" — if the book is thin, the fill
+    is honest about it.
+
+    This is the ONLY fill path. There is no \"realistic\" mode —
+    fabricating fills that the book doesn't support is how simulators lie.
+    """
+
+    def __init__(self, client: PolymarketClient, fee_rate: float = 0.0):
         self.client = client
         self.fee_rate = fee_rate  # e.g. 0.005 = 0.5%
-        self.mode = mode  # "strict" or "realistic"
 
     # ── Public API ───────────────────────────────────────────
 
@@ -197,54 +205,3 @@ class FillEngine:
             slippage_bps=slippage_bps,
             reason=reason,
         )
-
-    async def _realistic_fill(
-        self, token_id: str, size: float, side: str, book: Optional[OrderBook] = None
-    ) -> FillResult:
-        """Realistic fill using the CLOB /price endpoint for thin books.
-
-        The /price endpoint returns the best executable price for a given
-        side and size. For markets with wide spreads (99.8%), this gives
-        a more realistic fill than walking the book — because in reality,
-        someone would step in and provide a better price than 0.1¢/99.9¢.
-
-        Falls back to book-walking for deep markets where the book is
-        actually meaningful.
-        """
-        if book is None:
-            book = await self.client.get_book(token_id)
-
-        # If the book has reasonable depth and tight spread, walk it
-        book_depth = sum(lvl.size for lvl in (book.asks if side == "buy" else book.bids))
-        spread = book.spread
-
-        if spread is not None and spread < 0.05 and book_depth >= size:
-            # Deep, tight book — walk it
-            return await self._market_order(token_id, size, side, book)
-
-        # Thin or wide market — use /price endpoint for best executable
-        try:
-            # Polymarket /price endpoint: ?token_id=X&side=buy|sell
-            price_data = await self.client._get(
-                f"https://clob.polymarket.com/price?token_id={token_id}&side={side}"
-            )
-            price = float(price_data["price"])
-
-            # Assume we can fill at this price for the requested size
-            total_cost = price * size
-            fee = calculate_fee(int(self.fee_rate * 10000), price, total_cost)
-
-            return FillResult(
-                filled=True,
-                token_id=token_id,
-                side=side,
-                filled_size=size,
-                requested_size=size,
-                avg_price=price,
-                total_cost=total_cost,
-                fee=fee,
-                reason="filled (realistic — /price endpoint)",
-            )
-        except Exception:
-            # Fall back to book walk
-            return await self._market_order(token_id, size, side, book)

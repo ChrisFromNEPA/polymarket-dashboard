@@ -126,6 +126,14 @@ makes LLM forecasts tradeable. Prior art to mine is catalogued in v2 §2.
 live cycles until those are done, then reset the portfolio — the current
 `state/` records an invalid run.
 
+## 2026-07-26 — Remediation 02 — defects 6,3,5,4 done ✅
+
+**Done:** Diagnosed spread problem (NegRisk political longshots dominate trending — 0/40 markets have tight spreads). Fixed true equity (marks-aware in circuit breaker). Deleted dead `_realistic_fill` + `mode` param — one fill path now. Added fair_value invariant (reject execution_price > fair_value). Reset portfolio.
+
+**Blocked:** Defects 1 & 2 require Phase 3 backtest corpus. Cluster cap (Defect 4) constant exists; full NegRisk grouping deferred.
+
+**Next:** Phase 3 per `docs/TESTING.md` — build forecast backtest corpus, run §4.4 controls, start Book Recorder.
+
 ## 2026-07-26 — Phase 2 — complete ✅
 
 **Done:** Fill engine with strict book-walking (`agent/engine/fills.py`), portfolio engine with VWAP-based position tracking (`agent/engine/portfolio.py`), settlement engine with resolution polling (`agent/engine/settlement.py`).

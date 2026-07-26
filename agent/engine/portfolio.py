@@ -320,14 +320,17 @@ class PortfolioEngine:
         current_value = pos.shares * mark_price
         return current_value - pos.cost_basis
 
-    def get_total_equity(self, marks: dict[str, float]) -> float:
+    def get_total_equity(self, marks: dict[str, float] = None) -> float:
         """Total portfolio value = cash + sum of position values at given marks.
 
-        marks: {token_id:outcome -> mark_price}
+        marks: {pos_key -> mark_price}. If not provided, values at cost.
+        This is the canonical portfolio value — always use this, never raw cash.
         """
+        if marks is None:
+            marks = {}
         positions_value = 0.0
         for key, pos in self.positions.items():
-            mark = marks.get(key, pos.avg_entry_price)  # default to cost
+            mark = marks.get(key, pos.avg_entry_price)
             positions_value += pos.shares * mark
         return self.cash + positions_value
 
